@@ -1,4 +1,5 @@
 import pygame
+import numpy as np
 
 from pygame.locals import (
     K_UP,
@@ -29,27 +30,19 @@ class Player(pygame.sprite.Sprite):
         self.surf = pygame.Surface((self.width, self.height))
         self.surf.fill((255, 255, 255))
         self.rect = self.surf.get_rect()
-        self.pos = (0, 0)
-
-    def set_pos(self, pos):
-        self.pos = pos
 
     # Move the sprite based on user keypresses
     def update(self, pressed_keys):
         if pressed_keys[K_UP]:
-            self.rect.move_ip(0, -1)
+            self.rect.move_ip(0, -4)
         if pressed_keys[K_DOWN]:
-            self.rect.move_ip(0, 1)
+            self.rect.move_ip(0, 4)
 
         # Keep player on the screen
-        if self.rect.left < 0:
-            self.rect.left = 0
-        if self.rect.right > SCREEN_WIDTH:
-            self.rect.right = SCREEN_WIDTH
-        if self.rect.top <= 0:
-            self.rect.top = 0
-        if self.rect.bottom >= SCREEN_HEIGHT:
-            self.rect.bottom = SCREEN_HEIGHT
+        if self.rect.top <= walls['top'].height:
+            self.rect.top = walls['top'].height
+        elif self.rect.bottom >= SCREEN_HEIGHT - walls['bottom'].height:
+            self.rect.bottom = SCREEN_HEIGHT - walls['bottom'].height
 
 
 class Wall(pygame.sprite.Sprite):
@@ -60,13 +53,13 @@ class Wall(pygame.sprite.Sprite):
             self.width = 10
             self.surf = pygame.Surface((self.width, self.height))
             self.surf.fill((0, 0, 0))
-            self.wall = self.surf.get_rect()
+            self.rect = self.surf.get_rect()
         else:
             self.height = 10
             self.width = SCREEN_WIDTH
             self.surf = pygame.Surface((self.width, self.height))
             self.surf.fill((255, 255, 255))
-            self.wall = self.surf.get_rect()
+            self.rect = self.surf.get_rect()
 
 
 class Projectile(pygame.sprite.Sprite):
@@ -75,7 +68,35 @@ class Projectile(pygame.sprite.Sprite):
         self.surf = pygame.Surface((25, 25))
         self.surf.fill((255, 255, 255))
         self.rect = self.surf.get_rect()
-        self.pos = CENTER
+        self.velocity = [(-1)**(np.random.randint(0, 1))*5, (-1)**(np.random.randint(0, 1))*np.random.randint(1, 3)]
+        print(self.velocity)
+
+    def update(self):
+        # self.rect.move_ip(0.5, 0.7)
+        self.rect.move_ip(self.velocity)
+
+        b_won = self.check_goal()
+        if b_won:
+            quit()
+        self.check_rebound()
+
+    def check_goal(self):
+        if self.rect.left <= walls['left'].width:
+            print("Player 2 wins")
+            return True
+        elif self.rect.right >= SCREEN_WIDTH - walls['right'].width:
+            print("Player 1 wins")
+            return True
+        return False
+
+    def check_rebound(self):
+        if self.rect.top <= walls['top'].height:
+            self.velocity = [self.velocity[0], -self.velocity[1]]
+        elif self.rect.bottom >= SCREEN_HEIGHT - walls['bottom'].height:
+            self.velocity = [self.velocity[0], -self.velocity[1]]
+
+        if pygame.sprite.spritecollideany(self, players):
+            self.velocity = [-self.velocity[0], self.velocity[1]]
 
 
 pygame.init()
@@ -83,18 +104,23 @@ SCREEN_WIDTH = 750
 SCREEN_HEIGHT = 500
 CENTER = (int(SCREEN_WIDTH/2), int(SCREEN_HEIGHT/2))
 screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
+clock = pygame.time.Clock()
 
 player1 = Player()
 player2 = Player()
+players = pygame.sprite.Group()
+players.add(player1)
+players.add(player2)
 
-walls = [Wall(vertical=True), Wall(vertical=True),
-         Wall(vertical=False), Wall(vertical=False)]
-walls[0].wall.left = 0
-walls[1].wall.right = SCREEN_WIDTH
-walls[2].wall.top = 0
-walls[3].wall.bottom = SCREEN_HEIGHT
+walls = {'left': Wall(vertical=True), 'right': Wall(vertical=True),
+         'top': Wall(vertical=False), 'bottom': Wall(vertical=False)}
+walls['left'].rect.left = 0
+walls['right'].rect.right = SCREEN_WIDTH
+walls['top'].rect.top = 0
+walls['bottom'].rect.bottom = SCREEN_HEIGHT
 
 projectile = Projectile()
+projectile.rect.move_ip(CENTER)
 
 player1_loc = (SCREEN_WIDTH * 0.1, CENTER[1] - int(player1.height/2))
 player2_loc = (SCREEN_WIDTH * 0.9 - player2.width, CENTER[1] - int(player2.height/2))
@@ -114,27 +140,30 @@ while running:
     screen.fill((0, 0, 0))
 
     # Draw borders
-    for wall in walls:
-        screen.blit(wall.surf, wall.wall)
+    for wall in walls.values():
+        screen.blit(wall.surf, wall.rect)
 
     # Draw projectile
-    screen.blit(projectile.surf, CENTER)
+    screen.blit(projectile.surf, projectile.rect)
 
     # Draw the player on the screen
     screen.blit(player1.surf, player1.rect)
     screen.blit(player2.surf, player2.rect)
 
     """
-    Key presses
+    Updating locations
     """
     pressed_keys = pygame.key.get_pressed()
     player1.update(pressed_keys)
+
+    projectile.update()
 
     """
     Other stuff
     """
     # Updates the display with a new frame
     pygame.display.flip()
+    clock.tick(60)
 
 
 pygame.quit()
