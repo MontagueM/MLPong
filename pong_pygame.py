@@ -91,72 +91,76 @@ class Projectile(pygame.sprite.Sprite):
         if pygame.sprite.spritecollideany(self, players):
             self.velocity = [-self.velocity[0], self.velocity[1]]
 
+def run_game():
+    pygame.init()
+    SCREEN_WIDTH = 750
+    SCREEN_HEIGHT = 500
+    CENTER = (int(SCREEN_WIDTH / 2), int(SCREEN_HEIGHT / 2))
+    screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
+    clock = pygame.time.Clock()
 
-pygame.init()
-SCREEN_WIDTH = 750
-SCREEN_HEIGHT = 500
-CENTER = (int(SCREEN_WIDTH/2), int(SCREEN_HEIGHT/2))
-screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
-clock = pygame.time.Clock()
+    player1 = Player()
+    player2 = Player()
+    players = pygame.sprite.Group()
+    players.add(player1)
+    players.add(player2)
 
-player1 = Player()
-player2 = Player()
-players = pygame.sprite.Group()
-players.add(player1)
-players.add(player2)
+    walls = {'left': Wall(vertical=True), 'right': Wall(vertical=True),
+             'top': Wall(vertical=False), 'bottom': Wall(vertical=False)}
+    walls['left'].rect.left = 0
+    walls['right'].rect.right = SCREEN_WIDTH
+    walls['top'].rect.top = 0
+    walls['bottom'].rect.bottom = SCREEN_HEIGHT
 
-walls = {'left': Wall(vertical=True), 'right': Wall(vertical=True),
-         'top': Wall(vertical=False), 'bottom': Wall(vertical=False)}
-walls['left'].rect.left = 0
-walls['right'].rect.right = SCREEN_WIDTH
-walls['top'].rect.top = 0
-walls['bottom'].rect.bottom = SCREEN_HEIGHT
+    projectile = Projectile()
+    projectile.rect.move_ip(CENTER)
 
-projectile = Projectile()
-projectile.rect.move_ip(CENTER)
+    player1_loc = (SCREEN_WIDTH * 0.1, CENTER[1] - int(player1.height / 2))
+    player2_loc = (SCREEN_WIDTH * 0.9 - player2.width, CENTER[1] - int(player2.height / 2))
+    player1.rect.move_ip(player1_loc)
+    player2.rect.move_ip(player2_loc)
 
-player1_loc = (SCREEN_WIDTH * 0.1, CENTER[1] - int(player1.height/2))
-player2_loc = (SCREEN_WIDTH * 0.9 - player2.width, CENTER[1] - int(player2.height/2))
-player1.rect.move_ip(player1_loc)
-player2.rect.move_ip(player2_loc)
+    running = True
+    while running:
+        # Did the user click the window close button?
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-running = True
-while running:
-    # Did the user click the window close button?
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+        """
+        Drawing
+        """
+        screen.fill((0, 0, 0))
 
-    """
-    Drawing
-    """
-    screen.fill((0, 0, 0))
+        # Draw borders
+        for wall in walls.values():
+            screen.blit(wall.surf, wall.rect)
 
-    # Draw borders
-    for wall in walls.values():
-        screen.blit(wall.surf, wall.rect)
+        # Draw projectile
+        screen.blit(projectile.surf, projectile.rect)
 
-    # Draw projectile
-    screen.blit(projectile.surf, projectile.rect)
+        # Draw the player on the screen
+        screen.blit(player1.surf, player1.rect)
+        screen.blit(player2.surf, player2.rect)
 
-    # Draw the player on the screen
-    screen.blit(player1.surf, player1.rect)
-    screen.blit(player2.surf, player2.rect)
+        """
+        Updating locations
+        """
+        pressed_keys = pygame.key.get_pressed()
+        player1.update(pressed_keys)
 
-    """
-    Updating locations
-    """
-    pressed_keys = pygame.key.get_pressed()
-    player1.update(pressed_keys)
+        projectile.update()
 
-    projectile.update()
+        """
+        ML Hook
+        """
+        pygame.image.save(screen, 'screen.png')
 
-    """
-    Other stuff
-    """
-    # Updates the display with a new frame
-    pygame.display.flip()
-    clock.tick(60)
+        """
+        Updating frame
+        """
+        # Updates the display with a new frame
+        pygame.display.flip()
+        clock.tick(60)
 
-
-pygame.quit()
+    pygame.quit()
