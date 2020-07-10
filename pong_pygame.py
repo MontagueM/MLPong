@@ -12,13 +12,7 @@ from pygame.locals import (
 )
 
 """
-pong plan:
-- rectangular game space blocked by rect walls
-- two controllable rect blockers
-- circle for projectile
-    - spawns with random direction const speed
-    - deflects off walls with angle equal to incidence
-    - if hit left or right walls despawns
+Lots of room for improvement to be a "better game" but will look into it after NN work.
 """
 
 
@@ -68,8 +62,7 @@ class Projectile(pygame.sprite.Sprite):
         self.surf = pygame.Surface((25, 25))
         self.surf.fill((255, 255, 255))
         self.rect = self.surf.get_rect()
-        self.velocity = [(-1)**(np.random.randint(0, 1))*5, (-1)**(np.random.randint(0, 1))*np.random.randint(1, 3)]
-        print(self.velocity)
+        self.velocity = [(-1)**(np.random.randint(0, 2))*4, (-1)**(np.random.randint(0, 2))*np.random.randint(1, 3)]
 
     def update(self):
         # self.rect.move_ip(0.5, 0.7)
