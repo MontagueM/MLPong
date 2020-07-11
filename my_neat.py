@@ -1,3 +1,6 @@
+import numpy as np
+import pong_pygame
+
 """
 We need to implement:
 - computer vision?
@@ -139,4 +142,127 @@ These two should probably be randomly selected and not specified as related in a
 
 #######
 
+inputs = ?  # The input data SIZE
+outputs = ['K_UP', 'K_DOWN']
+
+Population = 300
+DeltaDisjoint = 2.0
+DeltaWeights = 0.4
+DeltaThreshold = 1.0
+
+StaleSpecies = 15
+
+MutateConnectionsChance = 0.25
+PerturbChance = 0.90
+CrossoverChance = 0.75
+LinkMutationChance = 2.0
+NodeMutationChance = 0.50
+BiasMutationChance = 0.40
+StepSize = 0.1
+DisableMutationChance = 0.4
+EnableMutationChance = 0.2
+
+TimeoutConstant = 20
+
+MaxNodes = 1000000
+
+
+def sigmoid(x):
+    return 2/(1+np.exp(-4.9*x))-1
+
+
+def new_innovation():
+    pool.innovation = pool.innovation + 1
+    return pool.innovation
+
+class Pool:
+    def __init__(self):
+        self.species = []
+        self.generation = 0
+        # Find out if innovations are required
+        self.innovation = outputs
+        self.current_species = 1
+        self.current_genome = 1
+        self.current_frame = 0
+        self.max_fitness = 0
+
+
+class Species:
+    def __init__(self):
+        self.top_fitness = 0
+        self.staleness = 0
+        self.genomes = []
+        self.average_fitness = 0
+
+
+class Genome:
+    def __init__(self):
+        self.genes = []
+        self.adjusted_fitness = 0
+        self.network = []
+        self.max_neuron = 0
+        self.global_rank = 0
+        self.mutation_rates = MutationRates()
+
+
+class MutationRates:
+    def __init__(self):
+        self.connections = MutateConnectionsChance
+        self.link = LinkMutationChance
+        self.bias = BiasMutationChance
+        self.node = NodeMutationChance
+        self.enable = EnableMutationChance
+        self.disable = DisableMutationChance
+        self.step = StepSize
+
+
+def evaluate_current():
+    species = pool.species[pool.current_species]
+    genome = species.genomes[pool.current_genome]
+
+    inputs = get_inputs()
+    controller = evaluate_network(genome.network, inputs)
+
+    if controller['K_UP'] and controller['K_DOWN']:
+        controller['K_UP'] = False
+        controller['K_DOWN'] = False
+
+    return controller
+
+
+def start_pong_game():
+    # We want a single frame update so there can be some input to the network
+    pong = pong_pygame.Pong()
+    pong.frame()
+    pong.update_frame()
+    return pong
+
+pool = Pool()
+pong_game = start_pong_game()
+
 while True:
+    species = pool.species[pool.current_species]
+    genome = species.genomes[pool.current_genome]
+
+    if pool.current_frame % 5 == 0:
+        buttons = evaluate_current()
+        # Pressing buttons for next frame
+        pong_game.press_buttons(buttons, b_network=True)
+
+    # Calculate fitness here
+    if completed_run:
+        genome.fitness = fitness
+
+        if fitness > pool.max_fitness:
+            pool.max_fitness = fitness
+
+        print(f'Gen {pool.generation} species {pool.current_species} genome {pool.current_genome}')
+
+        pool.current_species = 1
+        pool.current_genome = 1
+        while fitness_already_measured():
+            next_genome()
+        # Buttons get set here for next frame
+        initialise_run()
+
+    pool.currentFrame = pool.currentFrame + 1

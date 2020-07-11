@@ -30,11 +30,17 @@ class Player(pygame.sprite.Sprite):
         self.pong_inst = pong_inst
 
     # Move the sprite based on user keypresses
-    def update(self, pressed_keys):
-        if pressed_keys[K_UP]:
-            self.rect.move_ip(0, -4)
-        if pressed_keys[K_DOWN]:
-            self.rect.move_ip(0, 4)
+    def update(self, pressed_keys, b_network=False):
+        if b_network:
+            if pressed_keys["K_UP"]:
+                self.rect.move_ip(0, -4)
+            if pressed_keys["K_DOWN"]:
+                self.rect.move_ip(0, 4)
+        else:
+            if pressed_keys[K_UP]:
+                self.rect.move_ip(0, -4)
+            if pressed_keys[K_DOWN]:
+                self.rect.move_ip(0, 4)
 
         # Keep player on the screen
         if self.rect.top <= self.pong_inst.walls['top'].height:
@@ -44,7 +50,7 @@ class Player(pygame.sprite.Sprite):
 
 
 class Wall(pygame.sprite.Sprite):
-    def __init__(self, pong_inst, vertical=True):
+    def __init__(self, vertical=True):
         super(Wall, self).__init__()
         if vertical:
             self.height = SCREEN_HEIGHT
@@ -110,8 +116,8 @@ class Pong:
         self.players.add(self.player1)
         self.players.add(self.player2)
 
-        self.walls = {'left': Wall(self, vertical=True), 'right': Wall(self, vertical=True),
-                 'top': Wall(self, vertical=False), 'bottom': Wall(self, vertical=False)}
+        self.walls = {'left': Wall(vertical=True), 'right': Wall(vertical=True),
+                 'top': Wall(vertical=False), 'bottom': Wall(vertical=False)}
         self.walls['left'].rect.left = 0
         self.walls['right'].rect.right = SCREEN_WIDTH
         self.walls['top'].rect.top = 0
@@ -145,15 +151,14 @@ class Pong:
         """
         Updating locations
         """
-        pressed_keys = pygame.key.get_pressed()
-        self.player1.update(pressed_keys)
-
         self.projectile.update()
 
-        """
-        ML Hook
-        """
-        # pygame.image.save(self.screen, 'screen.png')
+    def press_buttons(self, buttons, b_network):
+        self.player1.update(buttons, b_network=b_network)
+
+    def capture_screen(self):
+        # Only capture every 5 frames or more as slow method
+        pygame.image.save(self.screen, 'screen.png')
 
     def update_frame(self):
         # Updates the display with a new frame
@@ -169,6 +174,8 @@ class Pong:
                     running = False
             self.frame()
             self.update_frame()
+            pressed_keys = pygame.key.get_pressed()
+            self.press_buttons(pressed_keys, b_network=False)
 
         pygame.quit()
 

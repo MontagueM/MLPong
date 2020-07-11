@@ -588,16 +588,7 @@ def initialise_run():
     evaluate_current()
 
 
-def evaluate_current():
-    species = pool.species[pool.current_species]
-    genome = species.genomes[pool.current_genome]
 
-    inputs = get_inputs()
-    controller = evaluate_network(genome.network, inputs)
-
-    if controller['Up'] and controller['Down']:
-        controller['Up'] = False
-        controller['Down'] = False
 
 if pool == 0:
     initialise_pool()
