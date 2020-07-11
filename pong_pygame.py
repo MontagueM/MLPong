@@ -163,7 +163,7 @@ class Pong:
         """
         self.projectile.update()
 
-    def press_buttons(self, buttons, genome_index, b_network):
+    def press_buttons(self, buttons, genome_index=-1, b_network=False):
         if b_network:
             if genome_index == 0:
                 self.player0.update(buttons[0], b_network=b_network)
@@ -194,7 +194,7 @@ class Pong:
             self.frame()
             self.update_frame()
             pressed_keys = pygame.key.get_pressed()
-            self.press_buttons(pressed_keys, b_network=False)
+            self.press_buttons(pressed_keys)
         pygame.quit()
 
 

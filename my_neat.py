@@ -38,7 +38,7 @@ def sigmoid(x):
 
 
 def new_innovation():
-    pool.innovation = pool.innovation + 1
+    pool.innovation += 1
     return pool.innovation
 
 
@@ -49,10 +49,10 @@ class Pool:
         self.reduced_species = []
         self.generation = 0
         # Find out if innovations are required
-        self.innovation = outputs
+        self.innovation = len(outputs)
         # The current genome/species is in relation to the reduced arrays
-        self.current_species = [-1, -1]
-        self.current_genomes = [-1, -1]
+        self.current_species_red_index = [-1, -1]
+        self.current_genomes_red_index = [-1, -1]
         self.current_frame = 0
         self.max_fitness = 0
 
@@ -223,7 +223,6 @@ def evaluate_network(network, inputs):
         if len(neuron.incoming) > 0:
             neuron.value = sigmoid(sum_)
 
-
     button_outputs = {'Up': False, 'Down': False}
     for o in range(len(outputs)):
         if network.neurons[MaxNodes+o].value > 0:
@@ -277,18 +276,6 @@ def crossover(g1, g2):
 
 
 def mutate(genome):
-    """
-    pairs(table) in lua produces an iterator of table key:value
-    so the below of pairs(genome.mutation_rates) will produce an iterator of
-    connections, MutateConnectionsChance
-    link, LinkMutationChance
-    bias, BiasMutationChance
-    .
-    .
-    .
-
-    The equivalent of this in Python for a class:
-    """
     for mutation, rate in genome.mutation_rates.__dict__.items():
         if np.random.randint(2) == 1:
             setattr(genome.mutation_rates, mutation, 0.95*rate)
@@ -297,7 +284,6 @@ def mutate(genome):
 
     if np.random.random() < genome.mutation_rates.connections:
         point_mutate(genome)
-
 
     while genome.mutation_rates.link > 0:
         if np.random.random() > genome.mutation_rates.link:
@@ -382,13 +368,13 @@ def random_neuron(genes, non_input):
             neurons[gene.out] = True
 
     count = 0
-    for _, _ in neurons.__dict__.items():
+    for _, _ in neurons.items():
         count += 1
 
     # TODO check this outcome is same as lua's math.random()
-    n = np.random.randint(1, count)
+    n = np.random.randint(count)
 
-    for k,v in neurons.__dict__.items():
+    for k,v in neurons.items():
         n -= 1
         if n == 0:
             return k
@@ -408,7 +394,7 @@ def node_mutate(genome):
 
     genome.max_neuron += 1
 
-    gene = genome.genes[np.random.randint(1, len(genome.genes))]
+    gene = genome.genes[np.random.randint(len(genome.genes))]
 
     if not gene.enabled:
         return
@@ -431,7 +417,7 @@ def node_mutate(genome):
 
 def enable_disable_mutate(genome, enable):
     candidates = []
-    for _, gene in genome.genes.__dict__.items():
+    for gene in genome.genes:
         if gene.enabled != enable:
             candidates.append(gene)
 
@@ -464,17 +450,19 @@ def evaluate_current_genome(genome):
 
 
 def initialise_run():
+    global pong_game
+    pong_game = start_pong_game()
     pool.current_frame = 0
     # Resetting buttons
-    for i in range(len(pool.current_genomes)):
+    for i in range(len(pool.current_genomes_red_index)):
         pong_game.press_buttons({'Up': False, 'Down': False}, genome_index=i, b_network=True)
 
     # Load the next genome for a new run
     next_genomes()
 
     for i in range(2):
-        species = pool.species[pool.current_species[i]]
-        genom = species.genomes[pool.current_genomes[i]]
+        species = pool.species[pool.current_species_red_index[i]]
+        genom = species.genomes[pool.current_genomes_red_index[i]]
         generate_network(genom)
         button = evaluate_current_genome(genom)
         pong_game.press_buttons(button, genome_index=i, b_network=True)
@@ -492,19 +480,19 @@ def next_genomes():
 
         reduced_genomes = list(set(red_species.genomes) - set(red_species.genomes))
         pool.reduced_species[red_species_index].reduced_genomes = reduced_genomes
-        pool.current_genomes[i] = reduced_genomes[np.random.randint(len(reduced_genomes))]
+        pool.current_genomes_red_index[i] = reduced_genomes[np.random.randint(len(reduced_genomes))]
 
         # Making sure that we mark the species as seen if all genomes in it are seen
-        pool.current_species[i] = pool.species.index(red_species)
-        pool_species = pool.species[pool.current_species[i]]
-        pool_species.seen_genomes.append(pool.current_genomes[i])
+        pool.current_species_red_index[i] = pool.species.index(red_species)
+        pool_species = pool.species[pool.current_species_red_index[i]]
+        pool_species.seen_genomes.append(pool.current_genomes_red_index[i])
 
         if set(pool_species.seen_genomes) == set(pool_species.genomes):
             pool.seen_species.append(red_species)
         if set(pool.species) == set(pool.seen_species):
             new_generation()
             next_genomes()
-    print(pool.current_genomes, pool.current_species)
+    print(pool.current_genomes_red_index, pool.current_species_red_index)
 
 
 def new_generation():
@@ -561,14 +549,18 @@ def disjoint(genes1, genes2):
     disjoint_genes = 0
 
     for gene in genes1:
-        if not i2[gene.innovation]:
+        if gene.innovation not in i2.keys():
+            disjoint_genes += 1
+        elif not i2[gene.innovation]:
             disjoint_genes += 1
 
-    for gene in genes1:
-        if not i1[gene.innovation]:
+    for gene in genes2:
+        if gene.innovation not in i1.keys():
+            disjoint_genes += 1
+        elif not i1[gene.innovation]:
             disjoint_genes += 1
 
-    n = np.max(len(genes1), len(genes2))
+    n = np.max([len(genes1), len(genes2)])
 
     return disjoint_genes / n
 
@@ -578,16 +570,19 @@ def weights(genes1, genes2):
     for gene in genes2:
         i2[gene.innovation] = gene
 
-    sum_ = 0
+    w_sum = 0
     coincident = 0
     # TODO for loop mutable check
     for gene in genes1:
-        if i2[gene.innovation] != 0:
-            gene2 = i2[gene.innovation]
-            sum_ += np.abs(gene.weight - gene2.weight)
-            coincident = coincident + 1
+        if gene.innovation in i2.keys():
+            if i2[gene.innovation] != 0:
+                gene2 = i2[gene.innovation]
+                w_sum += np.abs(gene.weight - gene2.weight)
+                coincident = coincident + 1
 
-    return sum_ / coincident
+    if coincident == 0:
+        return 0
+    return w_sum / coincident
 
 
 def start_pong_game():
@@ -597,8 +592,29 @@ def start_pong_game():
     pong.update_frame()
     return pong
 
-pool = Pool()
+
+def basic_genome():
+    genome = Genome()
+    innovation = 1
+    genome.max_neuron = len(inputs)
+    mutate(genome)
+
+    return genome
+
+
+def initialise_pool():
+    global pool
+    pool = Pool()
+    for i in range(Population):
+        basic = basic_genome()
+        add_to_species(basic)
+
+    initialise_run()
+
+
 pong_game = start_pong_game()
+pool = None
+initialise_pool()
 
 while True:
     """
@@ -606,12 +622,14 @@ while True:
     I'd like to randomly select two to compete and that we don't reselect those again.
     """
 
-    for genome_index, genome in enumerate(pool.current_genomes):
+    for genome_index, genome in enumerate(pool.current_genomes_red_index):
         # Pygame image capture lags poorly if done every frame. Also don't want to be too erratic
         if pool.current_frame % 5 == 0:
             # TODO redesign this to work with multiple players
-            current_species = pool.species[pool.current_species[genome_index]]
-            buttons = evaluate_current_genome(current_species[genome])
+            print()
+            current_species = pool.reduced_species[pool.current_species_red_index[genome_index]]
+            current_genome = current_species.reduced_genomes[genome]
+            buttons = evaluate_current_genome(current_genome)
             # Pressing buttons for next frame
             pong_game.press_buttons(buttons, genome_index=genome_index, b_network=True)
 
@@ -628,7 +646,7 @@ while True:
                 pool.max_fitness = genome.fitness
 
     if pong_game.is_completed:
-        print(f'Gen {pool.generation} species {pool.current_species} genome {pool.current_genomes}')
+        print(f'Gen {pool.generation} species {pool.current_species_red_index} genome {pool.current_genomes_red_index}')
 
         initialise_run()
 
