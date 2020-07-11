@@ -2,142 +2,8 @@ import numpy as np
 import pong_pygame
 
 """
-We need to implement:
-- computer vision?
-    - could instead just use the numbers of projectile location, velocity, etc.
-    - should try first with computer vision
-- a way to play the pong game very quickly (velocity multiplier)
-- a way to randomise inputs
-- an overall methodology of driving the pong game at the same time as using neural networking inputs
-    - this methodology likely is:
-        - run the game with player1, player2
-        - feed in as inputs the computer vision stuff
-        - randomly set weights as usual (need to pick a classifier thing, I'm prob not using my ANN)
-        - run for like 1000 games
-        - pick the players with greater fitness score and train using their weights and stuff (or breeding?)
-        - repeat again and again for different evolutions?
-
-Try figure it out myself and then look at something after.
-
-- make an ANN for N genomes, all randomised
-- save an image of the current game state
-- use computer vision to convert into inputs
-- send inputs through the corresponding genome
-- take outputs and place back into pygame
-- repeat until game ends
-- cull the weakest genomes in terms of fitness
-- breed the ones left over to produce another evolution with same number of genomes as prev evolution
-"""
-
-"""
-First try without any sprite recognition.
-If it doesn't work well could try manual sprite recognition.
-"""
-
-####
-# Actual procedure
-"""
-Procedure:
---------------
-Make a new pool
-    Populate each species with a single basic genome
-Initialise the run for a specific genome
-    Clear the buttons for new inputs
-    Generate the network for this genome
-        Populate the neuron array with inputs and output units
-        Sort genome genes (neuron) by their connection to outputs?
-        If gene is enabled
-            // Just to check that we have no unconnected neurons (genes)
-            If gene has no output
-                Add a new neuron to array
-            If it has no input
-                Add a new neuron to array 
-If run has not been completed:
-    Evaluate the current network
-        For every input
-            Set the input neuron values to inputs
-        For every neuron in network
-            For all incoming neurons to this neuron
-                Sum all incoming connection weight * value of that incoming neuron
-            Neuron value = sigmoid(sum)
-        If the output value for each button is > 0
-            Activate that button as a press next time
-    Set buttons to be pressed for next frame
-    Progress the game by a single frame
-If run has been completed:
-    Calculate fitness
-        // TEMP
-        Reward how long the game goes on for eg 1 point per ms (can be reached via current_frame)
-        Reward winning eg 100 for a win (reached via game return)
-    If this genome's fitness is the highest in the pool
-        Set the pool's max fitness to this new fitness (this is just for checking its working)
-    If current genome fitness != 0
-        Go to next genome
-            Add one to current genome counter
-            If current genome counter > num current genomes in species
-                Current genome counter = 1
-                Add one to current species counter
-                If current species counter > num current species in generation
-                    Current species counter = 1
-                    Create new generation
-                    // The logic for this is below as its quite a lot
-                    
-    Initialise a new run with the new genome/species/generation
-// This script will run forever until you stop it (can add a max generation)
-// Should add a write ability for each genome
-"""
-
-"""
-Create new generation
-    Cull the bottom half of each species in this generation
-    Remove stale species
-    Rank each species globally
-    For each species in pool
-        Calculate the average fitness for that species
-    Remove weak species based on fitness average
-    Calculate total average fitness as a variable
-    Children init var []
-    For each species in pool
-        // This calc means that if this species fitness is higher we get more breeding from it
-        Number of neurons to breed from this species = floor(species average fitness / total average fitness * Population) - 1
-        For number of neurons to breed
-            Breed a child from this species
-            Add this bred child to children array
-    Cull all but top genome of each species
-    While number of children < Population
-        Breed a child from this species (which is now only the best performer)
-        Add this bred child to children array
-    For every child in children
-        Add child to species
-            ...
-    
-    ...
-"""
-
-"""
-Breeding
-    If prob within crossover chance (0.75)
-        Select two random genomes from species to breed between
-        Create a child from the crossover of these two
-            Decide 
-    Else
-        Copy a random gene and make a child
-    
-    Mutate the child
-        Randomly slightly change each attr for this genomes mutation rates
-        If prob within connections mutation rates
-            Mutate weights
-                ...
-        .
-        .
-        .
-"""
-
-#######
-
-"""
-I need to write a system that works with two genomes being trained at the same time.
-These two should probably be randomly selected and not specified as related in any way.
+Need to rework most of this stuff to work for mutable variables instead of pointer vars
+eg converting for loops into non-mutable iterators
 """
 
 #######
@@ -207,6 +73,15 @@ class Genome:
         self.mutation_rates = MutationRates()
 
 
+class Gene:
+    def __init__(self):
+        self.into = 0
+        self.out = 0
+        self.weight = 0.0
+        self.enabled = True
+        self.innovation = 0
+
+
 class MutationRates:
     def __init__(self):
         self.connections = MutateConnectionsChance
@@ -250,7 +125,7 @@ def generate_network(genome):
             if network.neurons[gene.into] == 0:
                 network.neurons[gene.into] = Neuron()
 
-    # TODO check that this works in setting the network
+    # TODO check that this works in setting the network mutable
     genome.network = network
 
 
@@ -263,13 +138,13 @@ def rank_globally():
     _, glob = zip(*sorted(zip([x.fitness for x in glob], glob)))
 
     for g in glob:
-        # TODO make sure this actually sets it (pointer vs reference)
+        # TODO make sure this actually sets it (pointer vs reference) mutable
         g.global_rank = g
 
 
 def calculate_average_fitness(species):
     total = 0
-    # TODO check this total works
+    # TODO check this total works mutable
     for gen in species.genomes:
         total += gen.global_rank
 
@@ -278,7 +153,7 @@ def calculate_average_fitness(species):
 
 def total_average_fitness():
     total = 0
-    # TODO check this total works
+    # TODO check this total works mutable
     for species in pool.species:
         total += species.average_fitness
 
@@ -310,7 +185,6 @@ def remove_weak_species():
         breed = np.floor(species.average_fitness / sum * Population)
         if breed >= 1:
             survived.append(species)
-    # TODO check setting works
     pool.species = survived
 
 
@@ -392,7 +266,7 @@ def crossover(g1, g2):
 
     child.maxneuron = np.max(g1.maxneuron, g2.maxneuron)
 
-    for mutation, rate in pairs(g1.mutationRates):
+    for mutation, rate in g1.mutationRates.__dict__.items():
         child.mutationRates.mutation = rate
 
     return child
@@ -429,7 +303,7 @@ def mutate(genome):
 
     while genome.mutation_rates.bias > 0:
         if np.random.random() > genome.mutation_rates.bias:
-            link_mutate(genome, true)
+            link_mutate(genome, True)
 
         genome.mutation_rates.bias -= 1
 
@@ -455,7 +329,7 @@ def mutate(genome):
 def point_mutate(genome):
     step = genome.mutation_rates.step
 
-    for gene in genes:
+    for gene in genome.genes:
         if np.random.random() < PerturbChance:
             gene.weight += np.random.random() * step * 2 - step
         else:
@@ -466,7 +340,7 @@ def link_mutate(genome, force_bias):
     neuron1 = random_neuron(genome.genes, False)
     neuron2 = random_neuron(genome.genes, True)
 
-    new_link = new_gene()
+    new_link = Gene()
     if neuron1 <= len(inputs) and neuron2 <= len(inputs):
         # Both input nodes
         return
@@ -487,6 +361,41 @@ def link_mutate(genome, force_bias):
     new_link.innovation = new_innovation()
     new_link.weight = np.random.random() * 4 - 2
     genome.genes.append(new_link)
+
+
+def random_neuron(genes, non_input):
+    neurons = {}
+    if not non_input:
+        for i in range(len(inputs)):
+            neurons[i] = True
+    for o in range(len(outputs)):
+        neurons[MaxNodes+o] = True
+
+    for gene in genes:
+        if not non_input or gene.into > len(inputs):
+            neurons[gene.into] = True
+        if not non_input or gene.out > len(inputs):
+            neurons[gene.out] = True
+
+    count = 0
+    for _, _ in neurons.__dict__.items():
+        count += 1
+
+    # TODO check this outcome is same as lua's math.random()
+    n = np.random.randint(1, count)
+
+    for k,v in neurons.__dict__.items():
+        n -= 1
+        if n == 0:
+            return k
+
+    return 0
+
+
+def contains_link(genes, link):
+    for gene in genes:
+        if gene.into == link.into and gene.out == link.out:
+            return True
 
 
 def node_mutate(genome):
@@ -608,9 +517,9 @@ def new_generation():
 
 def add_to_species(child):
     found_species = False
-    for species in pool.species:
-        if not found_species and same_species(child, species.genomes[0]):
-            species.genomes.append(child)
+    for i in range(len(pool.species)):
+        if not found_species and same_species(child, pool.species[i].genomes[0]):
+            pool.species[i].genomes.append(child)
             found_species = True
 
     if not found_species:
@@ -656,6 +565,7 @@ def weights(genes1, genes2):
 
     sum_ = 0
     coincident = 0
+    # TODO for loop mutable check
     for gene in genes1:
         if i2[gene.innovation] != 0:
             gene2 = i2[gene.innovation]
