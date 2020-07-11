@@ -508,7 +508,7 @@ def remove_stale_species():
         _, species.genomes = zip(*sorted(zip([x.fitness for x in species.genomes], species.genomes)))
 
         if species.genomes[1].fitness > species.top_fitness:
-            species.top_fitness = species.genomes[1].fitness
+            species.top_fitness = species.genomes[0].fitness
             species.staleness = 0
         else:
             species.staleness += 1
