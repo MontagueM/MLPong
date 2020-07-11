@@ -79,7 +79,9 @@ If run has been completed:
                     Create new generation
                     // The logic for this is below as its quite a lot
                     
-    Initialise a new run with the new genome
+    Initialise a new run with the new genome/species/generation
+// This script will run forever until you stop it (can add a max generation)
+// Should add a write ability for each genome
 """
 
 """
@@ -105,10 +107,36 @@ Create new generation
     For every child in children
         Add child to species
             ...
+    
     ...
 """
 
 """
 Breeding
-    ...
+    If prob within crossover chance (0.75)
+        Select two random genomes from species to breed between
+        Create a child from the crossover of these two
+            Decide 
+    Else
+        Copy a random gene and make a child
+    
+    Mutate the child
+        Randomly slightly change each attr for this genomes mutation rates
+        If prob within connections mutation rates
+            Mutate weights
+                ...
+        .
+        .
+        .
 """
+
+#######
+
+"""
+I need to write a system that works with two genomes being trained at the same time.
+These two should probably be randomly selected and not specified as related in any way.
+"""
+
+#######
+
+while True:

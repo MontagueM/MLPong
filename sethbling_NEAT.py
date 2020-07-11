@@ -337,16 +337,28 @@ def enable_disable_mutate(genome, enable):
     if len(candidates) == 0:
         return
 
-    gene = candidates[np.random.random(1, len(candidates))]
+    gene = candidates[np.random.randint(len(candidates))]
     gene.enabled = not gene.enabled
 
 
 def mutate(genome):
-    for mutation, rate in pairs(genome.mutation_rates):
+    """
+    pairs(table) in lua produces an iterator of table key:value
+    so the below of pairs(genome.mutation_rates) will produce an iterator of
+    connections, MutateConnectionsChance
+    link, LinkMutationChance
+    bias, BiasMutationChance
+    .
+    .
+    .
+
+    The equivalent of this in Python for a class:
+    """
+    for mutation, rate in genome.mutation_rates.__dict__.items():
         if np.random.randint(2) == 1:
-            genome.mutation_rates.mutation = 0.95*rate
+            setattr(genome.mutation_rates, mutation, 0.95*rate)
         else:
-            genome.mutation_rates.mutation = 1.05263*rate
+            setattr(genome.mutation_rates, mutation, 1.05263*rate)
 
     if np.random.random() < genome.mutation_rates.connections:
         point_mutate(genome)
@@ -522,7 +534,7 @@ def remove_weak_species():
 def add_to_species(child):
     found_species = False
     for species in pool.species:
-        if not found_species and same_species(child, species.genomes[1]):
+        if not found_species and same_species(child, species.genomes[0]):
             species.genomes.append(child)
             found_species = True
 
@@ -627,6 +639,7 @@ while True:
         pool.current_genome = 1
         while fitness_already_measured():
             next_genome()
+        # Buttons get set here for next frame
         initialise_run()
 
     pool.currentFrame = pool.currentFrame + 1
