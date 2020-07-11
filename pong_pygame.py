@@ -33,9 +33,9 @@ class Player(pygame.sprite.Sprite):
     # Move the sprite based on user keypresses
     def update(self, pressed_keys, b_network=False):
         if b_network:
-            if pressed_keys['K_UP'] or pressed_keys['K_LEFT']:
+            if pressed_keys['Up']:
                 self.rect.move_ip(0, -4)
-            if pressed_keys['K_DOWN'] or pressed_keys['K_RIGHT']:
+            if pressed_keys['Down']:
                 self.rect.move_ip(0, 4)
         else:
             if self.player_index:
@@ -163,10 +163,12 @@ class Pong:
         """
         self.projectile.update()
 
-    def press_buttons(self, buttons, b_network):
+    def press_buttons(self, buttons, genome_index, b_network):
         if b_network:
-            self.player0.update(buttons[0], b_network=b_network)
-            self.player1.update(buttons[1], b_network=b_network)
+            if genome_index == 0:
+                self.player0.update(buttons[0], b_network=b_network)
+            else:
+                self.player1.update(buttons[1], b_network=b_network)
         else:
             self.player0.update(buttons, b_network=b_network)
             self.player1.update(buttons, b_network=b_network)

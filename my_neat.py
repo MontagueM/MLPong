@@ -8,8 +8,8 @@ eg converting for loops into non-mutable iterators
 
 #######
 
-inputs = ?  # The input data SIZE
-outputs = ['K_UP', 'K_DOWN']
+inputs = ['proj_x', 'proj_y', 'p0_x', 'p0_y', 'p1_x', 'p2_y']
+outputs = ['Up', 'Down']
 
 Population = 300
 DeltaDisjoint = 2.0
@@ -41,13 +41,16 @@ def new_innovation():
     pool.innovation = pool.innovation + 1
     return pool.innovation
 
+
 class Pool:
     def __init__(self):
         self.species = []
         self.seen_species = []
+        self.reduced_species = []
         self.generation = 0
         # Find out if innovations are required
         self.innovation = outputs
+        # The current genome/species is in relation to the reduced arrays
         self.current_species = [-1, -1]
         self.current_genomes = [-1, -1]
         self.current_frame = 0
@@ -60,6 +63,7 @@ class Species:
         self.staleness = 0
         self.genomes = []
         self.seen_genomes = []
+        self.reduced_genomes = []
         self.average_fitness = 0
 
 
@@ -220,7 +224,7 @@ def evaluate_network(network, inputs):
             neuron.value = sigmoid(sum_)
 
 
-    button_outputs = {}
+    button_outputs = {'Up': False, 'Down': False}
     for o in range(len(outputs)):
         if network.neurons[MaxNodes+o].value > 0:
             button_outputs[outputs[o]] = True
@@ -438,18 +442,23 @@ def enable_disable_mutate(genome, enable):
     gene.enabled = not gene.enabled
 
 
-def evaluate_current():
-    # TODO Fix
-    species = pool.species[pool.current_species]
-    genome = species.genomes[pool.current_genome]
+def get_inputs():
+    # pong_game.capture_screen()
+    # first set of inputs will just be the projectile location and both player locations
+    proj_loc = pong_game.projectile.rect.center
+    player0_loc = pong_game.player0.rect.center
+    player1_loc = pong_game.player1.rect.center
+    return np.array([proj_loc, player0_loc, player1_loc]).flatten()
 
-    # TODO add inputs from computer vision
+
+def evaluate_current_genome(genome):
     inputs = get_inputs()
     controller = evaluate_network(genome.network, inputs)
 
-    if controller['K_UP'] and controller['K_DOWN']:
-        controller['K_UP'] = False
-        controller['K_DOWN'] = False
+    # TODO Fix this
+    if controller['Up'] and controller['Down']:
+        controller['Up'] = False
+        controller['Down'] = False
 
     return controller
 
@@ -457,16 +466,18 @@ def evaluate_current():
 def initialise_run():
     pool.current_frame = 0
     # Resetting buttons
-    pong_game.press_buttons([{'K_UP': False, 'K_DOWN': False},
-                            {'K_LEFT': False, 'K_RIGHT': False}], b_network=True)
+    for i in range(len(pool.current_genomes)):
+        pong_game.press_buttons({'Up': False, 'Down': False}, genome_index=i, b_network=True)
+
     # Load the next genome for a new run
     next_genomes()
 
     for i in range(2):
         species = pool.species[pool.current_species[i]]
-        genome = species.genomes[pool.current_genomes[i]]
-        generate_network(genome)
-    evaluate_current()
+        genom = species.genomes[pool.current_genomes[i]]
+        generate_network(genom)
+        button = evaluate_current_genome(genom)
+        pong_game.press_buttons(button, genome_index=i, b_network=True)
 
 
 def next_genomes():
@@ -474,9 +485,13 @@ def next_genomes():
         # Selecting two random genomes from random species, making sure that we don't
         # select the same one again (trying to be efficient about it)
         reduced_species = list(set(pool.species) - set(pool.seen_species))
-        red_species = reduced_species[np.random.randint(len(reduced_species))]
-        reduced_genomes = list(set(red_species.genomes) - set(red_species.genomes))
+        pool.reduced_species = reduced_species
 
+        red_species_index = np.random.randint(len(pool.reduced_species))
+        red_species = reduced_species[red_species_index]
+
+        reduced_genomes = list(set(red_species.genomes) - set(red_species.genomes))
+        pool.reduced_species[red_species_index].reduced_genomes = reduced_genomes
         pool.current_genomes[i] = reduced_genomes[np.random.randint(len(reduced_genomes))]
 
         # Making sure that we mark the species as seen if all genomes in it are seen
@@ -595,9 +610,10 @@ while True:
         # Pygame image capture lags poorly if done every frame. Also don't want to be too erratic
         if pool.current_frame % 5 == 0:
             # TODO redesign this to work with multiple players
-            buttons = evaluate_current()
+            current_species = pool.species[pool.current_species[genome_index]]
+            buttons = evaluate_current_genome(current_species[genome])
             # Pressing buttons for next frame
-            pong_game.press_buttons(buttons, b_network=True)
+            pong_game.press_buttons(buttons, genome_index=genome_index, b_network=True)
 
         # Calculate fitness here
         # TODO check if this actually changes the fitness of genome in species or not
