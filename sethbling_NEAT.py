@@ -1,37 +1,15 @@
 """
-We need to implement:
-- computer vision?
-    - could instead just use the numbers of projectile location, velocity, etc.
-    - should try first with computer vision
-- a way to play the pong game very quickly (velocity multiplier)
-- a way to randomise inputs
-- an overall methodology of driving the pong game at the same time as using neural networking inputs
-    - this methodology likely is:
-        - run the game with player1, player2
-        - feed in as inputs the computer vision stuff
-        - randomly set weights as usual (need to pick a classifier thing, I'm prob not using my ANN)
-        - run for like 1000 games
-        - pick the players with greater fitness score and train using their weights and stuff (or breeding?)
-        - repeat again and again for different evolutions?
-
-Try figure it out myself and then look at something after.
-
-- make an ANN for N genomes, all randomised
-- save an image of the current game state
-- use computer vision to convert into inputs
-- send inputs through the corresponding genome
-- take outputs and place back into pygame
-- repeat until game ends
-- cull the weakest genomes in terms of fitness
-- breed the ones left over to produce another evolution with same number of genomes as prev evolution
-"""
+Pool: class that stores all the overall information (one pool is like one run of a simulation)
+Generation: a single static group of species and genomes. Each generation, its species are bred and culled to further evolution.
+Species: a group of genomes that
+Genome: a specific ANN that is run to find its fitness
+Gene: a unit within a genome (named as such for the evolution link)
+Fitness: a measurement statistic that rates how good a specific genome (and so a species too) is.
 
 """
-First try without any sprite recognition.
-If it doesn't work well could try manual sprite recognition.
-"""
-###############
 
+
+#####
 import numpy as np
 
 """
@@ -630,4 +608,27 @@ def fitness_already_measured():
     return genome.fitness != 0
 
 while True:
-    
+    species = pool.species[pool.current_species]
+    genome = species.genomes[pool.current_genome]
+
+    if pool.current_frame % 5 == 0:
+        evaluate_current()
+
+    # Calculate fitness here
+    if completed_run:
+        genome.fitness = fitness
+
+        if fitness > pool.max_fitness:
+            pool.max_fitness = fitness
+
+        print(f'Gen {pool.generation} species {pool.current_species} genome {pool.current_genome}')
+
+        pool.current_species = 1
+        pool.current_genome = 1
+        while fitness_already_measured():
+            next_genome()
+        initialise_run()
+
+    pool.currentFrame = pool.currentFrame + 1
+
+    # Frame advance the game
