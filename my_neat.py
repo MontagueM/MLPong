@@ -230,6 +230,52 @@ def evaluate_current():
     return controller
 
 
+def initialise_run():
+    pool.current_frame = 0
+    # Resetting buttons
+    pong_game.press_buttons([{'K_UP': False, 'K_DOWN': False},
+                            {'K_LEFT': False, 'K_RIGHT': False}], b_network=True)
+    species = pool.species[pool.current_species]
+    genome = species.genome[pool.current_genome]
+    generate_network(genome)
+    evaluate_current()
+
+
+def next_genome():
+    pool.current_genome += 1
+    if pool.current_genome > len(pool.species[pool.current_species].genomes):
+        pool.current_genome = 1
+        pool.current_species += 1
+        if pool.current_species > len(pool.species):
+            new_generation()
+            pool.current_species = 1
+
+
+def new_generation():
+    cull_species(False)  # Cull the bottom half of each species
+    rank_globally()
+    remove_stale_species()
+    rank_globally()
+    for species in pool.species:
+        calculate_average_fitness(species)
+    remove_weak_species()
+    sum_ = total_average_fitness()
+    children = []
+    for species in pool.species:
+        breed = np.floor(species.average_fitness / sum_ * Population) - 1
+        for i in range(breed):
+            children.append(breed_child(species))
+
+    cull_species(True)  # Cull all but top member of each species
+    while len(children) + len(pool.species) < Population:
+        species = pool.species[np.random.random(len(pool.species))]
+        children.append(breed_child(species))
+
+    for child in children:
+        add_to_species(child)
+
+
+
 def start_pong_game():
     # We want a single frame update so there can be some input to the network
     pong = pong_pygame.Pong()
@@ -244,25 +290,32 @@ while True:
     species = pool.species[pool.current_species]
     genome = species.genomes[pool.current_genome]
 
+    # Pygame image capture lags poorly if done every frame. Also don't want to be too erratic
     if pool.current_frame % 5 == 0:
         buttons = evaluate_current()
         # Pressing buttons for next frame
         pong_game.press_buttons(buttons, b_network=True)
 
     # Calculate fitness here
-    if completed_run:
+    fitness = pool.current_frame
+    if pong_game.is_completed:
+        # player_index is this genome's player index. We need to do this for both players.
+        if pong_game.completion_state[player_index]:
+            fitness += 500
+
         genome.fitness = fitness
 
-        if fitness > pool.max_fitness:
-            pool.max_fitness = fitness
+        if genome.fitness > pool.max_fitness:
+            pool.max_fitness = genome.fitness
 
         print(f'Gen {pool.generation} species {pool.current_species} genome {pool.current_genome}')
 
+        # Why is this being done?
         pool.current_species = 1
         pool.current_genome = 1
-        while fitness_already_measured():
-            next_genome()
-        # Buttons get set here for next frame
+
+        # Load the next genome for a new run
+        next_genome()
         initialise_run()
 
     pool.currentFrame = pool.currentFrame + 1

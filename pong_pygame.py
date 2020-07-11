@@ -20,7 +20,7 @@ SCREEN_HEIGHT = 500
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, pong_inst):
+    def __init__(self, pong_inst, player_index):
         super(Player, self).__init__()
         self.width = 25
         self.height = 150
@@ -28,18 +28,23 @@ class Player(pygame.sprite.Sprite):
         self.surf.fill((255, 255, 255))
         self.rect = self.surf.get_rect()
         self.pong_inst = pong_inst
+        self.player_index = player_index
 
     # Move the sprite based on user keypresses
     def update(self, pressed_keys, b_network=False):
         if b_network:
-            if pressed_keys["K_UP"]:
+            if pressed_keys['K_UP'] or pressed_keys['K_LEFT']:
                 self.rect.move_ip(0, -4)
-            if pressed_keys["K_DOWN"]:
+            if pressed_keys['K_DOWN'] or pressed_keys['K_RIGHT']:
                 self.rect.move_ip(0, 4)
         else:
-            if pressed_keys[K_UP]:
+            if self.player_index:
+                buttons = [K_LEFT, K_RIGHT]
+            else:
+                buttons = [K_UP, K_DOWN]
+            if pressed_keys[buttons[0]]:
                 self.rect.move_ip(0, -4)
-            if pressed_keys[K_DOWN]:
+            if pressed_keys[buttons[1]]:
                 self.rect.move_ip(0, 4)
 
         # Keep player on the screen
@@ -79,17 +84,19 @@ class Projectile(pygame.sprite.Sprite):
         # self.rect.move_ip(0.5, 0.7)
         self.rect.move_ip(self.velocity)
 
-        b_won = self.check_goal()
-        if b_won:
-            quit()
+        self.pong_inst.is_completed = self.check_goal()
+        if self.pong_inst.is_completed:
+            return
         self.check_rebound()
 
     def check_goal(self):
         if self.rect.left <= self.pong_inst.walls['left'].width:
-            print("Player 2 wins")
+            # print("Player 2 wins")
+            self.pong_inst.completion_state = [False, True]
             return True
         elif self.rect.right >= SCREEN_WIDTH - self.pong_inst.walls['right'].width:
-            print("Player 1 wins")
+            # print("Player 1 wins")
+            self.pong_inst.completion_state = [True, False]
             return True
         return False
 
@@ -110,11 +117,11 @@ class Pong:
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
         self.clock = pygame.time.Clock()
 
-        self.player1 = Player(self)
-        self.player2 = Player(self)
+        self.player0 = Player(self, 0)
+        self.player1 = Player(self, 1)
         self.players = pygame.sprite.Group()
+        self.players.add(self.player0)
         self.players.add(self.player1)
-        self.players.add(self.player2)
 
         self.walls = {'left': Wall(vertical=True), 'right': Wall(vertical=True),
                  'top': Wall(vertical=False), 'bottom': Wall(vertical=False)}
@@ -126,10 +133,13 @@ class Pong:
         self.projectile = Projectile(self)
         self.projectile.rect.move_ip(CENTER)
 
-        player1_loc = (SCREEN_WIDTH * 0.1, CENTER[1] - int(self.player1.height / 2))
-        player2_loc = (SCREEN_WIDTH * 0.9 - self.player2.width, CENTER[1] - int(self.player2.height / 2))
-        self.player1.rect.move_ip(player1_loc)
-        self.player2.rect.move_ip(player2_loc)
+        player0_loc = (SCREEN_WIDTH * 0.1, CENTER[1] - int(self.player0.height / 2))
+        player2_loc = (SCREEN_WIDTH * 0.9 - self.player1.width, CENTER[1] - int(self.player1.height / 2))
+        self.player0.rect.move_ip(player0_loc)
+        self.player1.rect.move_ip(player2_loc)
+
+        self.is_completed = False
+        self.completion_state = []
 
     def frame(self):
         """
@@ -145,8 +155,8 @@ class Pong:
         self.screen.blit(self.projectile.surf, self.projectile.rect)
 
         # Draw the player on the screen
+        self.screen.blit(self.player0.surf, self.player0.rect)
         self.screen.blit(self.player1.surf, self.player1.rect)
-        self.screen.blit(self.player2.surf, self.player2.rect)
 
         """
         Updating locations
@@ -154,7 +164,12 @@ class Pong:
         self.projectile.update()
 
     def press_buttons(self, buttons, b_network):
-        self.player1.update(buttons, b_network=b_network)
+        if b_network:
+            self.player0.update(buttons[0], b_network=b_network)
+            self.player1.update(buttons[1], b_network=b_network)
+        else:
+            self.player0.update(buttons, b_network=b_network)
+            self.player1.update(buttons, b_network=b_network)
 
     def capture_screen(self):
         # Only capture every 5 frames or more as slow method
@@ -172,11 +187,12 @@ class Pong:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+            if self.is_completed:
+                running = False
             self.frame()
             self.update_frame()
             pressed_keys = pygame.key.get_pressed()
             self.press_buttons(pressed_keys, b_network=False)
-
         pygame.quit()
 
 
