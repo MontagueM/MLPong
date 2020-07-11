@@ -66,5 +66,49 @@ If run has been completed:
         // TEMP
         Reward how long the game goes on for eg 1 point per ms (can be reached via current_frame)
         Reward winning eg 100 for a win (reached via game return)
+    If this genome's fitness is the highest in the pool
+        Set the pool's max fitness to this new fitness (this is just for checking its working)
+    If current genome fitness != 0
+        Go to next genome
+            Add one to current genome counter
+            If current genome counter > num current genomes in species
+                Current genome counter = 1
+                Add one to current species counter
+                If current species counter > num current species in generation
+                    Current species counter = 1
+                    Create new generation
+                    // The logic for this is below as its quite a lot
+                    
+    Initialise a new run with the new genome
+"""
 
+"""
+Create new generation
+    Cull the bottom half of each species in this generation
+    Remove stale species
+    Rank each species globally
+    For each species in pool
+        Calculate the average fitness for that species
+    Remove weak species based on fitness average
+    Calculate total average fitness as a variable
+    Children init var []
+    For each species in pool
+        // This calc means that if this species fitness is higher we get more breeding from it
+        Number of neurons to breed from this species = floor(species average fitness / total average fitness * Population) - 1
+        For number of neurons to breed
+            Breed a child from this species
+            Add this bred child to children array
+    Cull all but top genome of each species
+    While number of children < Population
+        Breed a child from this species (which is now only the best performer)
+        Add this bred child to children array
+    For every child in children
+        Add child to species
+            ...
+    ...
+"""
+
+"""
+Breeding
+    ...
 """

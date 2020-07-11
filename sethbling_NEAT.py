@@ -5,7 +5,7 @@ Species: a group of genomes that
 Genome: a specific ANN that is run to find its fitness
 Gene: a unit within a genome (named as such for the evolution link)
 Fitness: a measurement statistic that rates how good a specific genome (and so a species too) is.
-
+Stale: an unimportant unit or species that is not making progress
 """
 
 
