@@ -572,6 +572,7 @@ def new_generation():
 
     pool.generation += 1
 
+
 def add_to_species(child):
     found_species = False
     for i in range(len(pool.species)):

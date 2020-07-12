@@ -3,11 +3,17 @@ This may not be NEAT, and instead just an evolution system that is inspired from
 Ideally much simpler to understand.
 """
 import numpy as np
+import pong_pygame
+import copy
 
 inputs = ['proj_x', 'proj_y', 'p0_x', 'p0_y', 'p1_x', 'p2_y']
 outputs = ['Up', 'Down']
 
 POPULATION = 300
+BREED_PROBABILITY = 0.75
+
+def sigmoid(x):
+    return 2/(1+np.exp(-4.9*x))-1
 
 
 class Pool:
@@ -61,6 +67,15 @@ def basic_genome():
     return genome
 
 
+def get_inputs():
+    # pong_game.capture_screen()
+    # first set of inputs will just be the projectile location and both player locations
+    proj_loc = pong_game.projectile.rect.center
+    player0_loc = pong_game.player0.rect.center
+    player1_loc = pong_game.player1.rect.center
+    return np.array([proj_loc, player0_loc, player1_loc]).flatten()
+
+
 def generate_network(genome):
     network = Network()
 
@@ -84,6 +99,74 @@ def generate_network(genome):
 
 
     return network
+
+
+def evaluate_network(network, inputs):
+    inputs += 1
+
+    for i in range(len(inputs)):
+        network.neurons[i].value = inputs[i]
+    # TODO change this
+    for _, neuron in network.neurons.items():
+        w_sum = 0
+        for incoming in neuron.incoming:
+            other = network.neurons[incoming.into]
+            w_sum += incoming.weight * other.value
+
+        if len(neuron.incoming) > 0:
+            neuron.value = sigmoid(w_sum)
+
+    button_outputs = {'Up': False, 'Down': False}
+    for o in range(len(outputs), 0, -1):
+        if network.neurons[-o].value > 0:
+            button_outputs[outputs[o]] = True
+        else:
+            button_outputs[outputs[o]] = False
+
+    return button_outputs
+
+
+def evaluate_current_genome(genome):
+    inputs = get_inputs()
+    controller = evaluate_network(genome.network, inputs)
+
+    if controller['Up'] and controller['Down']:
+        controller['Up'] = False
+        controller['Down'] = False
+
+    return controller
+
+
+def new_generation():
+    # Reducing genomes for later breeding/copying
+    pool.genomes = sorted(pool.genomes, key=lambda x: x.fitness)[::-1]
+    cutoff = len(pool.genomes) * 0.1  # Taking 10% of top genomes
+    pool.genomes = pool.genomes[:int(cutoff)]
+
+    # Populating
+    for genome in pool.genomes:
+        if len(pool.genomes) > POPULATION:
+            break
+
+        dupe_count = genome.fitness
+        while dupe_count > 0:
+            if np.random.random() < BREED_PROBABILITY:
+                # Breed
+                child = breed_child(genome)
+            else:
+                # Copy
+                child = copy.copy(genome)
+            # We should randomly mutate some of them to incur new changes to the system
+            if np.random.random() < MUTATE_PROBABILITY:
+                child = mutate(child)
+            pool.genomes.append(child)
+            dupe_count -= 1
+
+    pool.generation += 1
+
+
+def breed_child(genome):
+    pass
 
 
 def initialise_run():
@@ -110,7 +193,15 @@ def process_run():
         pong_game.press_buttons(button, genome_index=i, b_network=True)
 
 
-def update_game():
+def start_pong_game():
+    # We want a single frame update so there can be some input to the network
+    pong = pong_pygame.Pong()
+    pong.frame()
+    pong.update_frame()
+    return pong
+
+
+def update_pong_game():
     pool.current_frame = pool.current_frame + 1
     pong_game.frame()
     pong_game.update_frame()
@@ -135,16 +226,17 @@ if __name__ == '__main__':
                     pool.max_fitness = genome.fitness
                 genome.genomes[genome].fitness = genome.fitness
 
-            print(f'Gen {pool.generation}')
             pool.first_genome_index += 2
+            print(f'Gen {pool.generation} | Genome first index {pool.first_genome_index}')
             # TODO Shuffle genomes somewhere
             initialise_run()
+            process_run()
 
         for i in range(pool.first_genome_index, pool.first_genome_index + 2):
             genome = pool.genomes[i]
 
             if pool.current_frame % 5 == 0 and pool.current_frame != 0:
-                buttons = evaluate_genome_network(genome)
+                buttons = evaluate_current_genome(genome)
                 pong_game.press_buttons(buttons, genome_index=i, b_network=True)
 
-        update_game()
+        update_pong_game()
