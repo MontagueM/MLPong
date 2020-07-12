@@ -166,9 +166,9 @@ class Pong:
     def press_buttons(self, buttons, genome_index=-1, b_network=False):
         if b_network:
             if genome_index == 0:
-                self.player0.update(buttons[0], b_network=b_network)
+                self.player0.update(buttons, b_network=b_network)
             else:
-                self.player1.update(buttons[1], b_network=b_network)
+                self.player1.update(buttons, b_network=b_network)
         else:
             self.player0.update(buttons, b_network=b_network)
             self.player1.update(buttons, b_network=b_network)

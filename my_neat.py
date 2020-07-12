@@ -112,25 +112,26 @@ def generate_network(genome):
     network = Network()
     network.neurons = {}
 
-    for inp in range(inputs):
+    for inp in range(len(inputs)):
         network.neurons[inp] = Neuron()
 
     for out in range(len(outputs)):
         network.neurons[MaxNodes+out] = Neuron()
 
-    _, genome.genes = zip(*sorted(zip([x.out for x in genome.genes], genome.genes)))
+    if len(genome.genes) == 0:
+        quit()
+    genome.genes = sorted(genome.genes, key=lambda x: x.out)
 
     for gene in genome.genes:
         if gene.enabled:
-            if network.neurons[gene.out] == 0:
+            if gene.out not in network.neurons.keys():
                 network.neurons[gene.out] = Neuron()
             neuron = network.neurons[gene.out]
             neuron.incoming.append(gene)
-            if network.neurons[gene.into] == 0:
+            if gene.into not in network.neurons.keys():
                 network.neurons[gene.into] = Neuron()
 
-    # TODO check that this works in setting the network mutable
-    genome.network = network
+    return network
 
 
 def rank_globally():
@@ -139,7 +140,7 @@ def rank_globally():
         for g in species.genomes:
             glob.append(g)
 
-    _, glob = zip(*sorted(zip([x.fitness for x in glob], glob)))
+    glob = sorted(glob, key=lambda x: x.fitness)
 
     for g in glob:
         # TODO make sure this actually sets it (pointer vs reference) mutable
@@ -167,7 +168,7 @@ def total_average_fitness():
 def remove_stale_species():
     survived = []
     for species in pool.species:
-        _, species.genomes = zip(*sorted(zip([x.fitness for x in species.genomes], species.genomes)))
+        species.genomes = sorted(species.genomes, key=lambda x: x.fitness)
 
         if species.genomes[1].fitness > species.top_fitness:
             species.top_fitness = species.genomes[0].fitness
@@ -194,7 +195,7 @@ def remove_weak_species():
 
 def cull_species(cull_to_one):
     for i, sp in enumerate(pool.species):
-        _, sp.genomes = zip(*sorted(zip([x.fitness for x in sp.genomes], sp.genomes)))
+        sp.genomes = sorted(sp.genomes, key=lambda x: x.fitness)
 
         remaining = np.ceil(len(sp.genomes)/2)
 
@@ -207,14 +208,14 @@ def cull_species(cull_to_one):
 def evaluate_network(network, inputs):
     inputs += 1
     # TODO check this line
-    if inputs != len(inputs):
-        print("Incorrect number of neural network inputs.")
-        return
+    # if inputs != len(inputs):
+    #     print("Incorrect number of neural network inputs.")
+    #     return
 
-    for i in inputs:
+    for i in range(len(inputs)):
      network.neurons[i].value = inputs[i]
 
-    for _, neuron in network.neurons.__dict__.items():
+    for _, neuron in network.neurons.items():
         sum_ = 0
         for incoming in neuron.incoming:
             other = network.neurons[incoming.into]
@@ -457,13 +458,11 @@ def initialise_run():
     for i in range(len(pool.current_genomes_red_index)):
         pong_game.press_buttons({'Up': False, 'Down': False}, genome_index=i, b_network=True)
 
-    # Load the next genome for a new run
-    next_genomes()
-
     for i in range(2):
         species = pool.species[pool.current_species_red_index[i]]
         genom = species.genomes[pool.current_genomes_red_index[i]]
-        generate_network(genom)
+        network = generate_network(genom)
+        species.genomes[pool.current_genomes_red_index[i]].network = network
         button = evaluate_current_genome(genom)
         pong_game.press_buttons(button, genome_index=i, b_network=True)
 
@@ -621,33 +620,42 @@ while True:
     We'll need to change this species and genome selection.
     I'd like to randomly select two to compete and that we don't reselect those again.
     """
-
     for genome_index, genome in enumerate(pool.current_genomes_red_index):
         # Pygame image capture lags poorly if done every frame. Also don't want to be too erratic
         if pool.current_frame % 5 == 0:
             # TODO redesign this to work with multiple players
             print()
-            current_species = pool.reduced_species[pool.current_species_red_index[genome_index]]
-            current_genome = current_species.reduced_genomes[genome]
+            if len(pool.reduced_species) != 0:
+                current_species = pool.reduced_species[pool.current_species_red_index[genome_index]]
+                current_genome = current_species.reduced_genomes[genome]
+            else:
+                current_species = pool.species[pool.current_species_red_index[genome_index]]
+                current_genome = current_species.genomes[genome]
             buttons = evaluate_current_genome(current_genome)
             # Pressing buttons for next frame
+            print(f'Pressing {buttons}')
             pong_game.press_buttons(buttons, genome_index=genome_index, b_network=True)
 
         # Calculate fitness here
         # TODO check if this actually changes the fitness of genome in species or not
-        genome.fitness = pool.current_frame
+        current_genome.fitness = pool.current_frame
 
         if pong_game.is_completed:
             # player_index is this genome's player index. We need to do this for both players.
             if pong_game.completion_state[genome_index]:
-                genome.fitness += 500
+                current_genome.fitness += 500
 
-            if genome.fitness > pool.max_fitness:
-                pool.max_fitness = genome.fitness
-
+            if current_genome.fitness > pool.max_fitness:
+                pool.max_fitness = current_genome.fitness
+            current_species.genomes[genome].fitness = current_genome.fitness
     if pong_game.is_completed:
         print(f'Gen {pool.generation} species {pool.current_species_red_index} genome {pool.current_genomes_red_index}')
 
+        # Load the next genome for a new run
+        next_genomes()
         initialise_run()
 
-    pool.currentFrame = pool.currentFrame + 1
+    pool.current_frame = pool.current_frame + 1
+    print("A")
+    pong_game.frame()
+    pong_game.update_frame()
