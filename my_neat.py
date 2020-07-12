@@ -119,7 +119,7 @@ def generate_network(genome):
     for out in range(len(outputs)):
         network.neurons[MaxNodes+out] = Neuron()
 
-    genome.genes = sorted(genome.genes, key=lambda x: x.out)
+    genome.genes = sorted(genome.genes, key=lambda x: x.out)[::-1]
 
     for gene in genome.genes:
         if gene.enabled:
@@ -139,8 +139,8 @@ def rank_globally():
         for g in species.genomes:
             glob.append(g)
 
-    glob = sorted(glob, key=lambda x: x.fitness)
-    glob = glob[::-1]
+    glob = sorted(glob, key=lambda x: x.fitness)[::-1]
+
     # TODO make sure this fits global rank as highest fitness (ie correct sorting)
     for i in range(len(glob)):
         # TODO make sure this actually sets it (pointer vs reference) mutable
@@ -169,7 +169,7 @@ def total_average_fitness():
 def remove_stale_species():
     survived = []
     for species in pool.species:
-        species.genomes = sorted(species.genomes, key=lambda x: x.fitness)
+        species.genomes = sorted(species.genomes, key=lambda x: x.fitness)[::-1]
 
         if species.genomes[0].fitness > species.top_fitness:
             species.top_fitness = species.genomes[0].fitness
@@ -196,7 +196,7 @@ def remove_weak_species():
 
 def cull_species(cull_to_one):
     for i, sp in enumerate(pool.species):
-        sp.genomes = sorted(sp.genomes, key=lambda x: x.fitness)
+        sp.genomes = sorted(sp.genomes, key=lambda x: x.fitness)[::-1]
 
         remaining = int(np.ceil(len(sp.genomes)/2))
 
@@ -281,7 +281,7 @@ def crossover(g1, g2):
 
 
 def mutate(genome):
-    print('Marker', genome)
+    # print('Marker', genome)
     for mutation, rate in genome.mutation_rates.__dict__.items():
         if np.random.randint(2) == 1:
             setattr(genome.mutation_rates, mutation, 0.95*rate)
@@ -349,7 +349,7 @@ def link_mutate(genome, force_bias):
     new_link = Gene()
     if neuron1 <= len(inputs) and neuron2 <= len(inputs):
         # Both input nodes
-        print("We haven't added one 1")
+        # print("We haven't added one 1")
         return
     if neuron2 <= len(inputs):
         # Swap output and input
@@ -363,13 +363,13 @@ def link_mutate(genome, force_bias):
         new_link.into = len(inputs)
 
     if contains_link(genome.genes, new_link):
-        print("We haven't added one 2")
+        # print("We haven't added one 2")
         return
 
     new_link.innovation = new_innovation()
     new_link.weight = np.random.random() * 4 - 2
     genome.genes.append(new_link)
-    print('We added one')
+    # print('We added one')
     return genome
 
 
@@ -689,12 +689,12 @@ while True:
 
         # Calculate fitness here
         # TODO check if this actually changes the fitness of genome in species or not
-        current_genome.fitness = pool.current_frame
+        current_genome.fitness = np.exp(pool.current_frame/50)
 
         if pong_game.is_completed:
             # player_index is this genome's player index. We need to do this for both players.
-            if pong_game.completion_state[genome_index]:
-                current_genome.fitness += 500
+            # if pong_game.completion_state[genome_index]:
+            #     current_genome.fitness += 1
 
             if current_genome.fitness > pool.max_fitness:
                 pool.max_fitness = current_genome.fitness
