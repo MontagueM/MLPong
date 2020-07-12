@@ -16,7 +16,7 @@ class Pool:
         self.genomes = []
         self.generation = 0
         # The current genome/species is in relation to the original arrays
-        self.current_genomes_index = [-1, -1]
+        self.first_genome_index = 0
 
         self.max_fitness = 0
         self.current_frame = 0
@@ -93,42 +93,21 @@ def initialise_run():
     pool.current_frame = 0
 
     # Resetting buttons
-    for i in range(len(pool.current_genomes_index)):
+    for i in range(2):
         pong_game.press_buttons({'Up': False, 'Down': False}, genome_index=i, b_network=True)
 
-    ###
-
-    if set(pool.species) == set(pool.seen_species):
-        print('New generation')
+    if pool.first_genome_index >= len(pool.genomes):
         new_generation()
-        pool.seen_species = []
-        for sp in pool.species:
-            sp.seen_genomes = []
-        reduced_species = list(set(pool.species) - set(pool.seen_species))
-        pool.reduced_species = reduced_species
 
-    for i in range(2):
-        _, genom = get_new_indexes(i)
+    for i in range(pool.first_genome_index, pool.first_genome_index+2):
+        pool.genomes[i].network = generate_network(pool.genomes[i])
 
-        if len(genom.genes) == 0:
-            print('Trying again')
-            initialise_pool()
-            return
-            # quit()
 
-        network = generate_network(genom)
-        genom.network = network
-        species = pool.species[pool.current_species_index[i]]
-        species.genomes[pool.current_genomes_index[i]].network = network
-        button = evaluate_current_genome(genom)
-        # print(genom, genom.network)
+def process_run():
+    for i in range(pool.first_genome_index, pool.first_genome_index+2):
+        genome = pool.genomes[i]
+        button = evaluate_current_genome(genome)
         pong_game.press_buttons(button, genome_index=i, b_network=True)
-
-    ###
-
-    for i in range(0, len(pool.genomes), 2):
-        genome1 = pool.genomes[i]
-        genome2 = pool.genomes[i+1]
 
 
 def update_game():
@@ -142,14 +121,14 @@ if __name__ == '__main__':
     pool = initialise_pool()
 
     while True:
-        # TODO this line may break code
         if not pong_game:
             print(f'Gen {pool.generation}')
             initialise_run()
+            process_run()
 
         elif pong_game.is_completed:
-            for genome_index in pool.current_genomes_index:
-                genome = pool.genomes[genome_index]
+            for i in range(pool.first_genome_index, pool.first_genome_index+2):
+                genome = pool.genomes[i]
 
                 genome.fitness = np.exp(pool.current_frame / 50)
                 if genome.fitness > pool.max_fitness:
@@ -157,13 +136,15 @@ if __name__ == '__main__':
                 genome.genomes[genome].fitness = genome.fitness
 
             print(f'Gen {pool.generation}')
+            pool.first_genome_index += 2
+            # TODO Shuffle genomes somewhere
             initialise_run()
 
-        for genome_index in pool.current_genomes_index:
-            genome = pool.genomes[genome_index]
+        for i in range(pool.first_genome_index, pool.first_genome_index + 2):
+            genome = pool.genomes[i]
 
             if pool.current_frame % 5 == 0 and pool.current_frame != 0:
                 buttons = evaluate_genome_network(genome)
-                pong_game.press_buttons(buttons, genome_index=genome_index, b_network=True)
+                pong_game.press_buttons(buttons, genome_index=i, b_network=True)
 
         update_game()
