@@ -11,6 +11,7 @@ outputs = ['Up', 'Down']
 
 POPULATION = 300
 BREED_PROBABILITY = 0.75
+MUTATE_PROBABILITY = 0.2
 
 def sigmoid(x):
     return 2/(1+np.exp(-4.9*x))-1
@@ -32,6 +33,14 @@ class Genome:
     def __init__(self):
         self.fitness = 0
         self.network = None
+        self.network_specs = NetworkSpecs()
+
+
+class NetworkSpecs:
+    # Network specs contain information that is used to populate the network for this specific genome
+    def __init__(self):
+        self.max_neurons = 1
+        self.max_connections = 2
 
 
 class Network:
@@ -144,29 +153,53 @@ def new_generation():
     pool.genomes = pool.genomes[:int(cutoff)]
 
     # Populating
-    for genome in pool.genomes:
+    for i, genome in enumerate(pool.genomes):
         if len(pool.genomes) > POPULATION:
             break
 
         dupe_count = genome.fitness
         while dupe_count > 0:
-            if np.random.random() < BREED_PROBABILITY:
-                # Breed
-                child = breed_child(genome)
-            else:
-                # Copy
-                child = copy.copy(genome)
-            # We should randomly mutate some of them to incur new changes to the system
-            if np.random.random() < MUTATE_PROBABILITY:
-                child = mutate(child)
+            child = breed_child(i)
+            child = mutate(child)
             pool.genomes.append(child)
             dupe_count -= 1
 
     pool.generation += 1
 
 
-def breed_child(genome):
-    pass
+def breed_child(genome_index):
+    """
+    Some of the new genomes should be bred to introduce new parameters that may be more optimal.
+    Breeding occurs (currently) with the genome just below itself.
+    Breeding uses a normal gaussian dist ratio to interpolate the weights (and biases?) for the new child
+    network.
+    """
+    if np.random.random() < BREED_PROBABILITY:
+        # Breed
+        network1 = pool.genomes[genome_index].network
+        network2 = pool.genomes[genome_index-1].network
+
+        interp_ratio = np.random.normal(0.5, 1)
+
+        # TODO Interp between network1 and network2 here
+
+        child = None
+    else:
+        # Copy
+        child = copy.copy(genome)
+    return child
+
+
+def mutate(child):
+    """
+    We should randomly mutate some of the new genomes to incur new changes to the system.
+    Mutation works by potentially adding the number of possible connections/neurons/etc.
+    """
+    for attr, value in child.network_specs.__dict__.items():
+        if np.random.random() < MUTATE_PROBABILITY:
+            setattr(child.network_specs, attr, value + 1)
+
+    return child
 
 
 def initialise_run():
