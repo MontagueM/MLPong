@@ -116,6 +116,7 @@ class Pong:
         CENTER = (int(SCREEN_WIDTH / 2), int(SCREEN_HEIGHT / 2))
         self.screen = pygame.display.set_mode([SCREEN_WIDTH, SCREEN_HEIGHT])
         self.clock = pygame.time.Clock()
+        self.velocity_const = 10
 
         self.player0 = Player(self, 0)
         self.player1 = Player(self, 1)
@@ -180,7 +181,7 @@ class Pong:
     def update_frame(self):
         # Updates the display with a new frame
         pygame.display.flip()
-        self.clock.tick(60)
+        self.clock.tick(60*self.velocity_const)
 
     def run_normal_pong(self):
         running = True
