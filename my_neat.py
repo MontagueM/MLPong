@@ -209,7 +209,7 @@ def evaluate_network(network, inputs):
     # if inputs != len(inputs):
     #     print("Incorrect number of neural network inputs.")
     #     return
-    print("Q")
+    # print("Q")
     for i in range(len(inputs)):
         network.neurons[i].value = inputs[i]
 
@@ -285,32 +285,43 @@ def mutate(genome):
         point_mutate(genome)
 
     while genome.mutation_rates.link > 0:
-        if np.random.random() > genome.mutation_rates.link:
-            link_mutate(genome, False)
-
+        if np.random.random() < genome.mutation_rates.link:
+            # print('a', len(genome.genes))
+            ret = link_mutate(genome, False)
+            if ret:
+                genome = ret
+            # print('b', len(genome.genes))
         genome.mutation_rates.link -= 1
 
     while genome.mutation_rates.bias > 0:
-        if np.random.random() > genome.mutation_rates.bias:
-            link_mutate(genome, True)
+        if np.random.random() < genome.mutation_rates.bias:
+            ret = link_mutate(genome, True)
+            if ret:
+                genome = ret
 
         genome.mutation_rates.bias -= 1
 
     while genome.mutation_rates.node > 0:
-        if np.random.random() > genome.mutation_rates.node:
-            node_mutate(genome)
+        if np.random.random() < genome.mutation_rates.node:
+            ret = node_mutate(genome)
+            if ret:
+                genome = ret
 
         genome.mutation_rates.node -= 1
 
     while genome.mutation_rates.enable > 0:
-        if np.random.random() > genome.mutation_rates.enable:
-            enable_disable_mutate(genome, True)
+        if np.random.random() < genome.mutation_rates.enable:
+            ret = enable_disable_mutate(genome, True)
+            if ret:
+                genome = ret
 
         genome.mutation_rates.enable -= 1
 
     while genome.mutation_rates.disable > 0:
-        if np.random.random() > genome.mutation_rates.disable:
-            enable_disable_mutate(genome, False)
+        if np.random.random() < genome.mutation_rates.disable:
+            ret = enable_disable_mutate(genome, False)
+            if ret:
+                genome = ret
 
         genome.mutation_rates.disable -= 1
 
@@ -318,11 +329,12 @@ def mutate(genome):
 def point_mutate(genome):
     step = genome.mutation_rates.step
 
-    for gene in genome.genes:
+    for i in range(len(genome.genes)):
         if np.random.random() < PerturbChance:
-            gene.weight += np.random.random() * step * 2 - step
+            genome.genes[i].weight += np.random.random() * step * 2 - step
         else:
-            gene.weight = np.random.random() * 4 - 2
+            genome.genes[i].weight = np.random.random() * 4 - 2
+    return genome
 
 
 def link_mutate(genome, force_bias):
@@ -350,6 +362,7 @@ def link_mutate(genome, force_bias):
     new_link.innovation = new_innovation()
     new_link.weight = np.random.random() * 4 - 2
     genome.genes.append(new_link)
+    return genome
 
 
 def random_neuron(genes, non_input):
@@ -370,14 +383,12 @@ def random_neuron(genes, non_input):
     for _, _ in neurons.items():
         count += 1
 
-    # TODO check this outcome is same as lua's math.random()
     n = np.random.randint(count)
 
-    for k,v in neurons.items():
+    for k, v in neurons.items():
         n -= 1
         if n == 0:
             return k
-
     return 0
 
 
@@ -412,19 +423,22 @@ def node_mutate(genome):
     gene2.innovation = new_innovation()
     gene2.enabled = True
     genome.genes.append(gene2)
+    return genome
 
 
 def enable_disable_mutate(genome, enable):
     candidates = []
-    for gene in genome.genes:
-        if gene.enabled != enable:
-            candidates.append(gene)
+    for i in range(len(genome.genes)):
+        if genome.genes[i].enabled != enable:
+            candidates.append(i)
 
     if len(candidates) == 0:
         return
 
-    gene = candidates[np.random.randint(len(candidates))]
+    rand_index = np.random.randint(len(candidates))
+    gene = genome.genes[candidates[rand_index]]
     gene.enabled = not gene.enabled
+    genome.genes[rand_index] = gene
 
 
 def get_inputs():
@@ -438,7 +452,7 @@ def get_inputs():
 
 def evaluate_current_genome(genome):
     inputs = get_inputs()
-    print('a', genome)
+    # print('a', genome)
     controller = evaluate_network(genome.network, inputs)
 
     # TODO Fix this
@@ -471,7 +485,7 @@ def initialise_run():
         species = pool.species[pool.current_species_red_index[i]]
         species.genomes[pool.current_genomes_red_index[i]].network = network
         button = evaluate_current_genome(genom)
-        print(genom, genom.network)
+        # print(genom, genom.network)
         pong_game.press_buttons(button, genome_index=i, b_network=True)
 
 
@@ -507,7 +521,7 @@ def next_genomes():
         if set(pool.species) == set(pool.seen_species):
             new_generation()
             next_genomes()
-    print('r', pool.current_genomes_red_index, pool.current_species_red_index)
+    # print('r', pool.current_genomes_red_index, pool.current_species_red_index)
 
 
 def new_generation():
@@ -613,7 +627,8 @@ def basic_genome():
     innovation = 1
     genome.max_neuron = len(inputs)
     mutate(genome)
-
+    # if len(genome.genes) == 0:
+    #     print("Yep")
     return genome
 
 
@@ -645,10 +660,10 @@ while True:
                 current_genome = current_species.reduced_genomes[genome]
             else:
                 current_genome = current_species.genomes[genome]
-            print("K", genome, current_genome)
+            # print("K", genome, current_genome)
             buttons = evaluate_current_genome(current_genome)
             # Pressing buttons for next frame
-            print(f'Pressing {buttons}')
+            # print(f'Pressing {buttons}')
             pong_game.press_buttons(buttons, genome_index=genome_index, b_network=True)
 
         # Calculate fitness here
@@ -671,6 +686,6 @@ while True:
         initialise_run()
 
     pool.current_frame = pool.current_frame + 1
-    print("A")
+    # print("A")
     pong_game.frame()
     pong_game.update_frame()
