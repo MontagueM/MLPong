@@ -298,6 +298,8 @@ def mutate(genome):
             if ret:
                 genome = ret
                 genome.mutation_rates.link -= 1
+            elif pool.generation > 0:
+                genome.mutation_rates.link -= 1
             # print('b', len(genome.genes))
 
     while genome.mutation_rates.bias > 0:
