@@ -118,8 +118,6 @@ def generate_network(genome):
     for out in range(len(outputs)):
         network.neurons[MaxNodes+out] = Neuron()
 
-    if len(genome.genes) == 0:
-        quit()
     genome.genes = sorted(genome.genes, key=lambda x: x.out)
 
     for gene in genome.genes:
@@ -211,9 +209,9 @@ def evaluate_network(network, inputs):
     # if inputs != len(inputs):
     #     print("Incorrect number of neural network inputs.")
     #     return
-
+    print("Q")
     for i in range(len(inputs)):
-     network.neurons[i].value = inputs[i]
+        network.neurons[i].value = inputs[i]
 
     for _, neuron in network.neurons.items():
         sum_ = 0
@@ -440,6 +438,7 @@ def get_inputs():
 
 def evaluate_current_genome(genome):
     inputs = get_inputs()
+    print('a', genome)
     controller = evaluate_network(genome.network, inputs)
 
     # TODO Fix this
@@ -459,39 +458,56 @@ def initialise_run():
         pong_game.press_buttons({'Up': False, 'Down': False}, genome_index=i, b_network=True)
 
     for i in range(2):
-        species = pool.species[pool.current_species_red_index[i]]
-        genom = species.genomes[pool.current_genomes_red_index[i]]
+        _, genom = get_new_red_indexes(i)
+
+        if len(genom.genes) == 0:
+            print('Trying again')
+            initialise_pool()
+            return
+            # quit()
+
         network = generate_network(genom)
+        genom.network = network
+        species = pool.species[pool.current_species_red_index[i]]
         species.genomes[pool.current_genomes_red_index[i]].network = network
         button = evaluate_current_genome(genom)
+        print(genom, genom.network)
         pong_game.press_buttons(button, genome_index=i, b_network=True)
+
+
+def get_new_red_indexes(i):
+    reduced_species = list(set(pool.species) - set(pool.seen_species))
+    pool.reduced_species = reduced_species
+
+    red_species_index = np.random.randint(len(pool.reduced_species))
+    red_species = reduced_species[red_species_index]
+    pool.current_species_red_index[i] = red_species_index
+
+    reduced_genomes = list(set(red_species.genomes) - set(red_species.seen_genomes))
+    pool.reduced_species[red_species_index].reduced_genomes = reduced_genomes
+    pool.current_genomes_red_index[i] = np.random.randint(len(reduced_genomes))
+    red_genome = red_species.reduced_genomes[pool.current_genomes_red_index[i]]
+
+    # Making sure that we mark the species as seen if all genomes in it are seen
+
+    pool_species = pool.species[pool.current_species_red_index[i]]
+    pool_species.seen_genomes.append(pool.current_genomes_red_index[i])
+
+    if set(pool_species.seen_genomes) == set(pool_species.genomes):
+        pool.seen_species.append(red_species)
+    return pool_species, red_genome
 
 
 def next_genomes():
     for i in range(2):
         # Selecting two random genomes from random species, making sure that we don't
         # select the same one again (trying to be efficient about it)
-        reduced_species = list(set(pool.species) - set(pool.seen_species))
-        pool.reduced_species = reduced_species
+        pool_species, _ = get_new_red_indexes(i)
 
-        red_species_index = np.random.randint(len(pool.reduced_species))
-        red_species = reduced_species[red_species_index]
-
-        reduced_genomes = list(set(red_species.genomes) - set(red_species.genomes))
-        pool.reduced_species[red_species_index].reduced_genomes = reduced_genomes
-        pool.current_genomes_red_index[i] = reduced_genomes[np.random.randint(len(reduced_genomes))]
-
-        # Making sure that we mark the species as seen if all genomes in it are seen
-        pool.current_species_red_index[i] = pool.species.index(red_species)
-        pool_species = pool.species[pool.current_species_red_index[i]]
-        pool_species.seen_genomes.append(pool.current_genomes_red_index[i])
-
-        if set(pool_species.seen_genomes) == set(pool_species.genomes):
-            pool.seen_species.append(red_species)
         if set(pool.species) == set(pool.seen_species):
             new_generation()
             next_genomes()
-    print(pool.current_genomes_red_index, pool.current_species_red_index)
+    print('r', pool.current_genomes_red_index, pool.current_species_red_index)
 
 
 def new_generation():
@@ -624,13 +640,12 @@ while True:
         # Pygame image capture lags poorly if done every frame. Also don't want to be too erratic
         if pool.current_frame % 5 == 0:
             # TODO redesign this to work with multiple players
-            print()
-            if len(pool.reduced_species) != 0:
-                current_species = pool.reduced_species[pool.current_species_red_index[genome_index]]
+            current_species = pool.reduced_species[pool.current_species_red_index[genome_index]]
+            if len(current_species.reduced_genomes) != 0:
                 current_genome = current_species.reduced_genomes[genome]
             else:
-                current_species = pool.species[pool.current_species_red_index[genome_index]]
                 current_genome = current_species.genomes[genome]
+            print("K", genome, current_genome)
             buttons = evaluate_current_genome(current_genome)
             # Pressing buttons for next frame
             print(f'Pressing {buttons}')
