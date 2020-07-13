@@ -98,8 +98,8 @@ def generate_network(genome):
         network.units.append(Unit())
 
     # Hidden units
-    num_h_units = int(np.ceil(np.random.random()*genome.network.max_h_neurons))
-    num_connections = int(np.ceil(np.random.random()*genome.network.max_connections))
+    num_h_units = int(np.ceil(np.random.random()*network.max_h_neurons))
+    num_connections = int(np.ceil(np.random.random()*network.max_connections))
     for i in range(num_h_units):
         network.units.append(Unit())
 
@@ -125,20 +125,21 @@ def evaluate_network(network, inputs):
     inputs += 1
 
     for i in range(len(inputs)):
-        network.neurons[i].value = inputs[i]
-    # TODO change this
-    for _, neuron in network.neurons.items():
-        w_sum = 0
-        for incoming in neuron.incoming:
-            other = network.neurons[incoming.into]
-            w_sum += incoming.weight * other.value
+        network.units[i].value = inputs[i]
 
-        if len(neuron.incoming) > 0:
-            neuron.value = sigmoid(w_sum)
+    # TODO change this
+    for unit in network.units:
+        w_sum = 0
+        for conn in unit.incoming_connections:
+            other = conn.starting_unit
+            w_sum += conn.weight * other.value
+
+        if len(unit.incoming_connections) > 0:
+            unit.value = sigmoid(w_sum)
 
     button_outputs = {'Up': False, 'Down': False}
-    for o in range(len(outputs), 0, -1):
-        if network.neurons[-o].value > 0:
+    for o in range(len(outputs)-1, -1, -1):
+        if network.units[-o].value > 0:
             button_outputs[outputs[o]] = True
         else:
             button_outputs[outputs[o]] = False
@@ -274,10 +275,10 @@ if __name__ == '__main__':
                 genome.fitness = np.exp(pool.current_frame / 50)
                 if genome.fitness > pool.max_fitness:
                     pool.max_fitness = genome.fitness
-                genome.genomes[genome].fitness = genome.fitness
+                pool.genomes[i].fitness = genome.fitness
 
             pool.first_genome_index += 2
-            print(f'Gen {pool.generation} | Genome first index {pool.first_genome_index}')
+            print(f'Gen {pool.generation} | Genome first index {pool.first_genome_index}/{len(pool.genomes)}')
             # TODO Shuffle genomes somewhere
             initialise_run()
             process_run()
