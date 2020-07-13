@@ -130,6 +130,16 @@ def generate_network(genome):
             if gene.into not in network.neurons.keys():
                 network.neurons[gene.into] = Neuron()
 
+    """
+    For every hidden unit is this genome
+        If hidden unit is enabled
+            If there is no output connection from this hidden unit
+                Set the output connection to a neuron
+            Add this hidden unit to the output connections's incoming array 
+            If there is no input connection to this hidden unit
+                Set the input connection to a neuron
+    """
+
     return network
 
 

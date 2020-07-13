@@ -33,26 +33,29 @@ class Genome:
     def __init__(self):
         self.fitness = 0
         self.network = None
-        self.network_specs = NetworkSpecs()
-
-
-class NetworkSpecs:
-    # Network specs contain information that is used to populate the network for this specific genome
-    def __init__(self):
-        self.max_neurons = 1
-        self.max_connections = 2
 
 
 class Network:
     def __init__(self):
         # We can identify inputs and outputs based on the number of inputs and outputs in the system
-        self.neurons = []
+        self.units = []
+        self.max_h_neurons = 1
+        self.max_connections = 2
 
 
-class Neuron:
+class Connection:
     def __init__(self):
-        self.incoming_neurons = []
+        self.starting_unit = None
+        self.weight = 0.0
+        self.ending_unit = None
+
+
+class Unit:
+    def __init__(self):
+        self.incoming_connections = []
         self.value = 0.0
+        # Placeholder enabled until we may need it (with biases)
+        self.enabled = True
 
 
 def initialise_pool():
@@ -89,23 +92,31 @@ def generate_network(genome):
     network = Network()
 
     for inp in range(len(inputs)):
-        network.neurons.append(Neuron())
+        network.units.append(Unit())
 
     for out in range(len(outputs)):
-        network.neurons.append(Neuron())
+        network.units.append(Unit())
 
-    genome.genes = sorted(genome.genes, key=lambda x: x.out)[::-1]
+    # Hidden units
+    num_h_units = int(np.ceil(np.random.random()*genome.network.max_h_neurons))
+    num_connections = int(np.ceil(np.random.random()*genome.network.max_connections))
+    for i in range(num_h_units):
+        network.units.append(Unit())
 
-    # TODO change this
-    for gene in genome.genes:
-        if gene.enabled:
-            if gene.out not in network.neurons.keys():
-                network.neurons[gene.out] = Neuron()
-            neuron = network.neurons[gene.out]
-            neuron.incoming.append(gene)
-            if gene.into not in network.neurons.keys():
-                network.neurons[gene.into] = Neuron()
-
+    while num_connections > 0:
+        conn = Connection
+        b = np.sqrt(6) / np.sqrt(num_h_units)
+        conn.weight = np.random.uniform(-b, b) # sample from that thing before
+        # We don't want to start a connection from an output node
+        conn.starting_unit = network.units[np.random.randint(0, len(network.units)-len(outputs))]
+        # We don't want to end a connection from an input node
+        ending_index = np.random.randint(len(inputs), len(network.units))
+        conn.ending_unit = network.units[ending_index]
+        if conn.starting_unit == conn.ending_unit:
+            continue
+        else:
+            network.units[ending_index].incoming_connections.append(conn)
+            num_connections -= 1
 
     return network
 
@@ -176,14 +187,18 @@ def breed_child(genome_index):
     """
     if np.random.random() < BREED_PROBABILITY:
         # Breed
-        network1 = pool.genomes[genome_index].network
+        child = copy.copy(genome)
+
+        network1 = child.network
         network2 = pool.genomes[genome_index-1].network
 
         interp_ratio = np.random.normal(0.5, 1)
 
-        # TODO Interp between network1 and network2 here
-
-        child = None
+        new_len = int(interp_ratio * (network1[len(inputs):-len(outputs)] + network2[len(inputs):-len(outputs)])/2)
+        if len(network1) > len(network2):
+            child.network = network1[len(inputs)] + network1[new_len] + network1[-len(outputs)]
+        else:
+            child.network = network2[len(inputs)] + network2[new_len] + network2[-len(outputs)]
     else:
         # Copy
         child = copy.copy(genome)
@@ -195,7 +210,9 @@ def mutate(child):
     We should randomly mutate some of the new genomes to incur new changes to the system.
     Mutation works by potentially adding the number of possible connections/neurons/etc.
     """
-    for attr, value in child.network_specs.__dict__.items():
+    for attr, value in child.network.__dict__.items():
+        if attr == 'neurons':
+            continue
         if np.random.random() < MUTATE_PROBABILITY:
             setattr(child.network_specs, attr, value + 1)
 
