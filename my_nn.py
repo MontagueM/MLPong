@@ -6,12 +6,14 @@ import numpy as np
 import pong_pygame
 import copy
 
-inputs = ['proj_x', 'proj_y', 'p0_x', 'p0_y', 'p1_x', 'p2_y']
+# , 'p0_x', 'p0_y', 'p1_x', 'p2_y'
+inputs = ['proj_x', 'proj_y']
 outputs = ['Up', 'Down']
 
 POPULATION = 100
 BREED_PROBABILITY = 0.75
-MUTATE_PROBABILITY = 0.2
+MUTATE_PROBABILITY = 0.5
+
 
 def sigmoid(x):
     return 2/(1+np.exp(-4.9*x))-1
@@ -25,6 +27,7 @@ class Pool:
         # The current genome/species is in relation to the original arrays
         self.first_genome_index = 0
 
+        self.gen_max_fitness = 0
         self.max_fitness = 0
         self.current_frame = 0
 
@@ -33,14 +36,14 @@ class Genome:
     def __init__(self):
         self.fitness = 0
         self.network = None
+        self.max_h_neurons = 1
+        self.max_connections = 2
 
 
 class Network:
     def __init__(self):
         # We can identify inputs and outputs based on the number of inputs and outputs in the system
         self.units = []
-        self.max_h_neurons = 1
-        self.max_connections = 2
 
 
 class Connection:
@@ -65,8 +68,8 @@ def initialise_pool():
     global pool
     pool = Pool()
     for i in range(POPULATION):
-        genome = basic_genome()
-        pool.genomes.append(genome)
+        genom = basic_genome()
+        pool.genomes.append(genom)
     return pool
 
 
@@ -74,18 +77,19 @@ def basic_genome():
     """
     Generates a new genome with a random network of units (not fully connected).
     """
-    genome = Genome()
-    genome.network = generate_network(genome)
-    return genome
+    genom = Genome()
+    genom.network = generate_network(genom)
+    return genom
 
 
-def get_inputs():
+def get_inputs(index):
     # pong_game.capture_screen()
     # first set of inputs will just be the projectile location and both player locations
     proj_loc = pong_game.projectile.rect.center
-    player0_loc = pong_game.player0.rect.center
-    player1_loc = pong_game.player1.rect.center
-    return np.array([proj_loc, player0_loc, player1_loc]).flatten()
+    # player0_loc = pong_game.player0.rect.center
+    # player1_loc = pong_game.player1.rect.center
+    # , player0_loc, player1_loc
+    return np.array([index, proj_loc[0], proj_loc[1]])
 
 
 def generate_network(genome):
@@ -97,16 +101,16 @@ def generate_network(genome):
     for out in range(len(outputs)):
         network.units.append(Unit())
 
-    # Hidden units
-    num_h_units = int(np.ceil(np.random.random()*network.max_h_neurons))
-    num_connections = int(np.ceil(np.random.random()*network.max_connections))
+    num_h_units = int(np.ceil(np.random.random()*genome.max_h_neurons))
+    num_connections = int(np.ceil(np.random.random()*genome.max_connections))
+
     for i in range(num_h_units):
         network.units.append(Unit())
 
     while num_connections > 0:
         conn = Connection
         b = np.sqrt(6) / np.sqrt(num_h_units)
-        conn.weight = np.random.uniform(-b, b) # sample from that thing before
+        conn.weight = np.random.uniform(-b, b)  # sample from that thing before
         # We don't want to start a connection from an output node
         conn.starting_unit = network.units[np.random.randint(0, len(network.units)-len(outputs))]
         # We don't want to end a connection from an input node
@@ -122,8 +126,6 @@ def generate_network(genome):
 
 
 def evaluate_network(network, inputs):
-    inputs += 1
-
     for i in range(len(inputs)):
         network.units[i].value = inputs[i]
         # print(f'in {inputs[i]}')
@@ -149,8 +151,9 @@ def evaluate_network(network, inputs):
     return button_outputs
 
 
-def evaluate_current_genome(genome):
-    inputs = get_inputs()
+def evaluate_current_genome(genome, index):
+    inputs = get_inputs(index)
+    
     controller = evaluate_network(genome.network, inputs)
 
     if controller['Up'] and controller['Down']:
@@ -165,23 +168,25 @@ def new_generation():
 
     # Reducing genomes for later breeding/copying
     pool.genomes = sorted(pool.genomes, key=lambda x: x.fitness)[::-1]
-    cutoff = len(pool.genomes) * 0.1  # Taking 10% of top genomes
+    pool.gen_max_fitness = pool.genomes[0].fitness
+    cutoff = len(pool.genomes) * 0.5  # Taking x% of top genomes
     pool.genomes = pool.genomes[:int(cutoff)]
 
     # Populating
-    for i, genome in enumerate(pool.genomes):
-        if len(pool.genomes) >= POPULATION:
-            break
-
-        dupe_count = genome.fitness/100
+    children = []
+    for i, genom in enumerate(pool.genomes):
+        dupe_count = (genom.fitness / pool.gen_max_fitness) * (POPULATION * 0.4)
+        # print(f'Dupe count {dupe_count}')
         while dupe_count > 0:
-            if len(pool.genomes) >= POPULATION:
+            if len(children) >= POPULATION-len(pool.genomes):
                 break
             child = breed_child(i)
             child = mutate(child)
-            pool.genomes.append(child)
+            children.append(child)
             dupe_count -= 1
 
+    pool.genomes += children
+    np.random.shuffle(pool.genomes)
     pool.generation += 1
     pool.first_genome_index = 0
 
@@ -193,9 +198,10 @@ def breed_child(genome_index):
     Breeding uses a normal gaussian dist ratio to interpolate the weights (and biases?) for the new child
     network.
     """
+    genom = pool.genomes[genome_index]
     if np.random.random() < BREED_PROBABILITY:
         # Breed
-        child = copy.copy(genome)
+        child = copy.deepcopy(genom)
         # TODO fix at a later time
         #
         # units1 = child.network.units
@@ -211,7 +217,8 @@ def breed_child(genome_index):
         #     child.network.units = units2[len(inputs)] + units2[new_len] + units2[-len(outputs)]
     else:
         # Copy
-        child = copy.copy(genome)
+        child = copy.deepcopy(genom)
+
     return child
 
 
@@ -220,12 +227,11 @@ def mutate(child):
     We should randomly mutate some of the new genomes to incur new changes to the system.
     Mutation works by potentially adding the number of possible connections/neurons/etc.
     """
-    for attr, value in child.network.__dict__.items():
-        if attr == 'units':
+    for attr, value in child.__dict__.items():
+        if attr == 'fitness' or attr == 'network':
             continue
         if np.random.random() < MUTATE_PROBABILITY:
-            setattr(child.network, attr, value + 1)
-
+            setattr(child, attr, value + 1)
     return child
 
 
@@ -247,10 +253,11 @@ def initialise_run():
 
 
 def process_run():
-    for i in range(pool.first_genome_index, pool.first_genome_index+2):
-        genome = pool.genomes[i]
-        button = evaluate_current_genome(genome)
-        pong_game.press_buttons(button, genome_index=i, b_network=True)
+    if pool.current_frame % 5 == 0 and pool.current_frame != 0:
+        for i in range(pool.first_genome_index, pool.first_genome_index+2):
+            genome = pool.genomes[i]
+            button = evaluate_current_genome(genome, i-pool.first_genome_index)
+            pong_game.press_buttons(button, genome_index=i-pool.first_genome_index, b_network=True)
 
 
 def start_pong_game():
@@ -294,15 +301,9 @@ if __name__ == '__main__':
             pool.first_genome_index += 2
             # TODO Shuffle genomes somewhere
             initialise_run()
-            process_run()
 
-        for i in range(pool.first_genome_index, pool.first_genome_index + 2):
-            genome = pool.genomes[i]
-
-            if pool.current_frame % 5 == 0 and pool.current_frame != 0:
-                buttons = evaluate_current_genome(genome)
-                pong_game.press_buttons(buttons, genome_index=i-pool.first_genome_index, b_network=True)
-
+        process_run()
         update_pong_game()
 
-FIGURE OUT WHY THE COMPLEXITY IS NOT INCREASING
+
+# FIGURE OUT WHY THE COMPLEXITY IS NOT INCREASING
