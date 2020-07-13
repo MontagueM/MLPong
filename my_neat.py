@@ -237,6 +237,7 @@ def evaluate_network(network, inputs):
 
     button_outputs = {'Up': False, 'Down': False}
     for o in range(len(outputs)):
+        print(network.neurons[MaxNodes+o].value)
         if network.neurons[MaxNodes+o].value > 0:
             button_outputs[outputs[o]] = True
         else:

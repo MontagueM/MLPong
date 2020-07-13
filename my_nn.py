@@ -9,7 +9,7 @@ import copy
 inputs = ['proj_x', 'proj_y', 'p0_x', 'p0_y', 'p1_x', 'p2_y']
 outputs = ['Up', 'Down']
 
-POPULATION = 300
+POPULATION = 100
 BREED_PROBABILITY = 0.75
 MUTATE_PROBABILITY = 0.2
 
@@ -126,6 +126,7 @@ def evaluate_network(network, inputs):
 
     for i in range(len(inputs)):
         network.units[i].value = inputs[i]
+        # print(f'in {inputs[i]}')
 
     # TODO change this
     for unit in network.units:
@@ -136,10 +137,11 @@ def evaluate_network(network, inputs):
 
         if len(unit.incoming_connections) > 0:
             unit.value = sigmoid(w_sum)
-
+    # print([x.value for x in network.units])
     button_outputs = {'Up': False, 'Down': False}
-    for o in range(len(outputs)-1, -1, -1):
-        if network.units[-o].value > 0:
+    for o in range(0, len(outputs)):
+        # print(network.units[-(len(outputs)-o)].value)
+        if network.units[-(len(outputs)-o)].value > 0:
             button_outputs[outputs[o]] = True
         else:
             button_outputs[outputs[o]] = False
@@ -159,6 +161,8 @@ def evaluate_current_genome(genome):
 
 
 def new_generation():
+    print(f'Max fitness gen {pool.generation}: {pool.max_fitness}')
+
     # Reducing genomes for later breeding/copying
     pool.genomes = sorted(pool.genomes, key=lambda x: x.fitness)[::-1]
     cutoff = len(pool.genomes) * 0.1  # Taking 10% of top genomes
@@ -166,17 +170,20 @@ def new_generation():
 
     # Populating
     for i, genome in enumerate(pool.genomes):
-        if len(pool.genomes) > POPULATION:
+        if len(pool.genomes) >= POPULATION:
             break
 
-        dupe_count = genome.fitness
+        dupe_count = genome.fitness/100
         while dupe_count > 0:
+            if len(pool.genomes) >= POPULATION:
+                break
             child = breed_child(i)
             child = mutate(child)
             pool.genomes.append(child)
             dupe_count -= 1
 
     pool.generation += 1
+    pool.first_genome_index = 0
 
 
 def breed_child(genome_index):
@@ -189,17 +196,19 @@ def breed_child(genome_index):
     if np.random.random() < BREED_PROBABILITY:
         # Breed
         child = copy.copy(genome)
-
-        network1 = child.network
-        network2 = pool.genomes[genome_index-1].network
-
-        interp_ratio = np.random.normal(0.5, 1)
-
-        new_len = int(interp_ratio * (network1[len(inputs):-len(outputs)] + network2[len(inputs):-len(outputs)])/2)
-        if len(network1) > len(network2):
-            child.network = network1[len(inputs)] + network1[new_len] + network1[-len(outputs)]
-        else:
-            child.network = network2[len(inputs)] + network2[new_len] + network2[-len(outputs)]
+        # TODO fix at a later time
+        #
+        # units1 = child.network.units
+        # units2 = pool.genomes[genome_index-1].network.units
+        #
+        # interp_ratio = np.random.normal(0.5, 1)
+        #
+        # [units1[len(inputs):-len(outputs)] + units1[len(inputs):-len(outputs)]
+        # new_len = int(interp_ratio
+        # if len(units1) > len(units2):
+        #     child.network.units = units1[len(inputs)] + units1[new_len] + units1[-len(outputs)]
+        # else:
+        #     child.network.units = units2[len(inputs)] + units2[new_len] + units2[-len(outputs)]
     else:
         # Copy
         child = copy.copy(genome)
@@ -212,10 +221,10 @@ def mutate(child):
     Mutation works by potentially adding the number of possible connections/neurons/etc.
     """
     for attr, value in child.network.__dict__.items():
-        if attr == 'neurons':
+        if attr == 'units':
             continue
         if np.random.random() < MUTATE_PROBABILITY:
-            setattr(child.network_specs, attr, value + 1)
+            setattr(child.network, attr, value + 1)
 
     return child
 
@@ -264,7 +273,7 @@ if __name__ == '__main__':
 
     while True:
         if not pong_game:
-            print(f'Gen {pool.generation}')
+            # print(f'Gen {pool.generation} | Genome first index {pool.first_genome_index}/{len(pool.genomes)} | complexity {len(pool.genomes[pool.first_genome_index].network.units)}')
             initialise_run()
             process_run()
 
@@ -273,12 +282,16 @@ if __name__ == '__main__':
                 genome = pool.genomes[i]
 
                 genome.fitness = np.exp(pool.current_frame / 50)
+
+                if pong_game.completion_state[i-pool.first_genome_index]:
+                    genome.fitness += 100
+
                 if genome.fitness > pool.max_fitness:
                     pool.max_fitness = genome.fitness
                 pool.genomes[i].fitness = genome.fitness
 
+            print(f'Gen {pool.generation} | Genome first index {pool.first_genome_index}/{len(pool.genomes)} | complexity {len(pool.genomes[pool.first_genome_index].network.units)}')
             pool.first_genome_index += 2
-            print(f'Gen {pool.generation} | Genome first index {pool.first_genome_index}/{len(pool.genomes)}')
             # TODO Shuffle genomes somewhere
             initialise_run()
             process_run()
@@ -288,6 +301,8 @@ if __name__ == '__main__':
 
             if pool.current_frame % 5 == 0 and pool.current_frame != 0:
                 buttons = evaluate_current_genome(genome)
-                pong_game.press_buttons(buttons, genome_index=i, b_network=True)
+                pong_game.press_buttons(buttons, genome_index=i-pool.first_genome_index, b_network=True)
 
         update_pong_game()
+
+FIGURE OUT WHY THE COMPLEXITY IS NOT INCREASING
